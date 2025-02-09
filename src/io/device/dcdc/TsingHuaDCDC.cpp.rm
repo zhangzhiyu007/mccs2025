@@ -1,0 +1,558 @@
+/*
+ * TsingHua.cpp
+ *
+ *  Created on: 2013-10-14
+ *      Author: liuhaitao
+ */
+
+#include "TsingHuaDCDC.h"
+
+TsingHuaDCDC::TsingHuaDCDC()
+{
+	// TODO Auto-generated constructor stub
+	m_can = NULL;
+	for(int i = 0; i < 3; i++)
+	{
+		m_flag[i] = 0;
+		m_contolFlag[i] = 0;
+		m_lifeSignal[i] = 0;
+		m_SendLifeSignal[i] = 0;
+		m_num[i] = 0;
+		m_retries[i] = 0;
+		m_startTimer[i].Initialize();
+		m_controlStart[i].Initialize();
+		m_controlStart[i].SetStartTime();
+		m_frameWrite[i].data.resize(8);
+		m_frameWrite[i].id = 0;
+		m_frameWrite[i].type = Can::ERROR_FRAME;
+		m_pvsFlag = 1;
+	}
+
+	m_V = 0.0;
+}
+
+TsingHuaDCDC::~TsingHuaDCDC()
+{
+	// TODO Auto-generated destructor stub
+}
+
+void TsingHuaDCDC::SetCan(Can* can)
+{
+	assert(can!=NULL);
+	m_can = can;
+}
+
+int TsingHuaDCDC::Read(Device::SlaveDev* dev, Can::FrameInfo frame)
+{
+	int ret = ErrorInfo::ERR_OK;
+	int addr = atoi(dev->slaveAddr.c_str());
+
+	//设备型号
+	int devModel = 0;
+
+	BYTE id[4] =
+	{ 0, 0, 0, 0 };
+
+	id[0] = (frame.id >> 24) & 0xFF;
+	id[1] = (frame.id >> 16) & 0xFF;
+	id[2] = (frame.id >> 8) & 0xFF;
+	id[3] = (frame.id >> 0) & 0xFF;
+
+	if ((id[2] == 0x32) && (id[3] == 0x64 + addr))
+	{
+		devModel = 5;//ACLT-DCDC
+	}
+	else
+	{
+
+	}
+
+	if (5 == devModel)//型号ACLT-DCDC
+	{
+		ret = this->AcltDcdcRead(dev, frame);
+	}
+	else
+	{
+
+	}
+
+	return ret;
+}
+
+int TsingHuaDCDC::Preset(Device::SlaveDev* dev)
+{
+	int ret = ErrorInfo::ERR_OK;
+	//判断设备名称
+	//判断设备型号来确定具体通信协议
+	switch (dev->devModel)
+	{
+//	case DevModel::Model_ACLT_DCDC:
+//		ret = this->AcltDcdcPreset(dev);
+//		break;
+	default:
+		break;
+	};
+
+	return ret;
+}
+
+int TsingHuaDCDC::AcltDcdcRead(Device::SlaveDev* dev, Can::FrameInfo frame)
+{
+	int ret = ErrorInfo::ERR_OK;
+	int addr = atoi(dev->slaveAddr.c_str());
+	int regStart = dev->regStart;
+	float tmp = 0;
+	int data = 0;
+	bool comm = false;
+
+	//判断发送控制数据之后50ms是否收到确认帧
+	if (m_flag[addr - 1] == 1)
+	{
+		//判断是否为控制帧的确认帧
+		zlog_info(Util::m_zlog,"判断是否为控制帧的确认帧");
+		if (frame.id == ((0x10003200) | ((0x10003200 & 0xFF) | (0x64 + addr))))
+		{
+			zlog_info(Util::m_zlog,"控制确认帧");
+			comm = true;
+			m_flag[addr - 1] = 0;
+			m_retries[addr - 1] = 0;
+			return ErrorInfo::ERR_OK;
+		}
+		else
+		{
+			m_startTimer[addr - 1].SetEndTime();
+			if (m_startTimer[addr - 1].GetMilliSeconds() > 50)
+			{
+				//判断计数器是否小于3
+				if (m_retries[addr - 1] < 3)
+				{
+					zlog_warn(Util::m_zlog,"接收确认帧超时,再次发送同一个控制帧");
+					m_can->Write(m_frameWrite[addr - 1]);
+					m_startTimer[addr - 1].SetStartTime();
+					m_retries[addr - 1]++;
+				}
+			}
+		}
+	}
+
+	//判断接收帧的ID
+	//BMSC2_1 DCDC定期上传数据
+	if (frame.id == ((0x18003200) | ((0x18003200 & 0xFF) | (0x64 + addr))))
+	{
+		zlog_info(Util::m_zlog,"BMSC2_1 DCDC定期上传数据");
+		comm = true;
+		//把接收数据存到MemdB里
+		data = (short) frame.data[0];
+		MemDb::SetRealData(regStart + 10, data, false);//启停
+		data = (short) frame.data[1];
+		MemDb::SetRealData(regStart + 11, data, false);//系统模式
+		data = (short) frame.data[2];
+		MemDb::SetRealData(regStart + 12, data, false);//工作模式
+		data = (short) frame.data[3];
+		MemDb::SetRealData(regStart + 13, data, false);//运行状态
+		data = ((short) frame.data[4] << 8) | ((short) frame.data[5]);
+		MemDb::SetRealData(regStart + 14, data, false);//故障码1
+
+#if 0
+		zlog_warn(Util::m_zlog,"启停状态：%d",(short) frame.data[0]);
+		zlog_warn(Util::m_zlog,"启停状态：%d",(short) frame.data[1]);
+		zlog_warn(Util::m_zlog,"工作模式：%d",(short) frame.data[2]);
+		zlog_warn(Util::m_zlog,"运行状态：%d",(short) frame.data[3]);
+		zlog_warn(Util::m_zlog,"故障码：%d",(((short) frame.data[4] << 8) | ((short) frame.data[5])));
+#endif
+
+#if 0
+		//判断生命信号是否重复
+		if(m_lifeSignal == frame.data[7])
+		{
+			zlog_warn(Util::m_zlog,"本次生命信号与上次重复，通讯故障");
+			MemDb::SetRealData(regStart + 0, false, false);
+			m_lifeSignal = 0;
+			return ErrorInfo::ERR_INV_RESP;
+		}
+		//保存本次生命信号
+		m_lifeSignal = frame.data[7];
+#endif
+
+		ret = ErrorInfo::ERR_OK;
+	}
+	//BMSC2_2 DCDC定期上传数据
+	else if (frame.id == ((0x18013200) | ((0x18013200 & 0xFF) | (0x64 + addr))))
+	{
+		zlog_info(Util::m_zlog,"BMSC2_2 DCDC定期上传数据");
+		comm = true;
+		//把接收的直流侧数据存到MemDB里
+		tmp =((short)(((frame.data[0]) << 8) | (frame.data[1]))) * 10;
+		MemDb::SetRealData(regStart + 15,tmp, false);//直流侧功率
+		tmp = ((short)(((frame.data[2]) << 8) | (frame.data[3]))) * 0.1;
+		if (tmp < 20.0)
+		{
+			tmp = 0.0;
+		}
+		MemDb::SetRealData(regStart + 16, tmp, false);//直流侧电压
+		tmp = ((short)(((frame.data[4]) << 8) | (frame.data[5]))) * 0.1;
+		MemDb::SetRealData(regStart + 17, tmp, false);//直流侧电流
+
+#if 0
+		zlog_warn(Util::m_zlog,"直流侧功率：%.2f",(float)(((short)(((frame.data[0]) << 8) | (frame.data[1]))) * 10));
+		zlog_warn(Util::m_zlog,"直流侧电压：%.2f",(((short)(((frame.data[2]) << 8) | (frame.data[3]))) * 0.1));
+		zlog_warn(Util::m_zlog,"直流侧电流：%.2f",(((short)(((frame.data[4]) << 8) | (frame.data[5]))) * 0.1));
+#endif
+		ret = ErrorInfo::ERR_OK;
+	}
+	//BMSC2_3 DCDC定期上传数据
+	else if (frame.id == ((0x18023200) | ((0x18023200 & 0xFF) | (0x64 + addr))))
+	{
+		zlog_info(Util::m_zlog,"BMSC2_3 DCDC定期上传数据");
+		comm = true;
+		//把接收的电池测数据存储到MemDB里
+		tmp =((short)(((frame.data[0]) << 8) | (frame.data[1]))) * 10;
+		MemDb::SetRealData(regStart + 18,tmp, false);//电池侧功率
+		tmp = ((short)(((frame.data[2]) << 8) | (frame.data[3]))) * 0.1;
+		MemDb::SetRealData(regStart + 19, tmp, false);//电池侧电压
+		tmp = ((short)(((frame.data[4]) << 8) | (frame.data[5]))) * 0.1;
+		MemDb::SetRealData(regStart + 20, tmp, false);//电池侧电流
+
+#if 0
+		zlog_warn(Util::m_zlog,"电池侧功率：%.2f",(float)(((short)(((frame.data[0]) << 8) | (frame.data[1]))) * 10));
+		zlog_warn(Util::m_zlog,"电池侧电压：%.2f",(((short)(((frame.data[2]) << 8) | (frame.data[3]))) * 0.1));
+		zlog_warn(Util::m_zlog,"电池侧电流：%.2f",(((short)(((frame.data[4]) << 8) | (frame.data[5]))) * 0.1));
+#endif
+
+		ret = ErrorInfo::ERR_OK;
+	}
+	else if (frame.id == ((0x10003200) | ((0x10003200 & 0xFF) | (0x64 + addr))))
+	{
+		zlog_info(Util::m_zlog,"证明通讯正常的控制确认帧");
+		comm = true;
+	}
+
+	MemDb::SetRealData(regStart + 0, comm, false);
+	return ret;
+}
+
+int TsingHuaDCDC::AcltDcdcPreset(Device::SlaveDev* dev)
+{
+	int ret = ErrorInfo::ERR_OK;
+	int addr = atoi(dev->slaveAddr.c_str());
+	int ioAddr = 0;
+	int regStart = dev->regStart;
+	Can::FrameInfo frameWrite; //CAN帧信息
+	frameWrite.data.resize(8);
+	ShortArray realFrame;
+	realFrame.resize(9);
+	RealData realData;
+	RealData realData1;
+	RealData realData2;
+	RealData realData3;
+	RealData realData4;
+	RealData realData5;
+	RealData realData6;
+	RealData realData7;
+	RealData realDataComm;
+	IO io;
+	int value;
+	int value1;
+	int value2;
+	float data = 0;
+	float tmp = 0;
+
+	if (addr == 1)
+	{
+		MemDb::GetRealData(realData, 22310);//获取光伏DCDC是否已经待机
+		MemDb::GetRealData(realData2, 24710);//获取模拟光伏DCDC是否已经待机
+		MemDb::GetRealData(realData1, 21291);//获取QF14是否已经吸合
+		MemDb::GetRealData(realData3, 21293);//获取QF16状态
+		MemDb::GetRealData(realData4, 21294);//获取QF17状态
+		/*
+		 * 光伏DCDC待机或者模拟光伏DCDC待机并且QF14吸合的情况，并且QF16和QF17只能闭合一个
+		 */
+		if (((realData.pv.data.iValue == 1) && (realData1.pv.data.iValue == 1) && (realData3.pv.data.iValue == 1))
+				|| ((realData2.pv.data.iValue == 1) && (realData1.pv.data.iValue == 1) && (realData4.pv.data.iValue == 1)))
+		{
+			if (((realData3.pv.data.iValue == 1) && (realData4.pv.data.iValue== 0))
+					|| ((realData3.pv.data.iValue == 0) && (realData4.pv.data.iValue == 1)))
+			{
+				if (m_pvsFlag == 1)
+				{
+					io.SetDo(8, true);//吸合KA1继电器
+					msleep(100);
+					io.SetDo(9, true);//吸合KA2继电器
+					msleep(10);
+					io.SetDo(8, false);//断开KA1继电器
+					m_pvsFlag = 0;
+				}
+			}
+			else
+			{
+				io.SetDo(8, false);
+				msleep(10);
+				io.SetDo(9, false);
+				m_pvsFlag = 1;
+			}
+		}
+		else
+		{
+			io.SetDo(8, false);
+			msleep(10);
+			io.SetDo(9, false);
+			m_pvsFlag = 1;
+		}
+	}
+
+	if (addr == 3)
+	{
+		MemDb::GetRealData(value1, regStart + 10);//获取DCDC启停状态
+		MemDb::GetRealData(value2, 21292);//获取QF15断路器状态，如果QF15断开就直接设置电压
+		if((value1 != 2)&&(value2 == 1))
+		{
+			MemDb::GetRealDataWrited(realData, regStart + 9, true);//设置电压
+		}
+		MemDb::GetRealData(value, 21513);//获取PCS运行状态
+
+		if ((realData.pv.data.dbValue > 550.0) && (m_V == 0.0) && (value == 0))
+		{
+			m_V = realData.pv.data.dbValue;
+			data = 500.0;
+			MemDb::SetRealData(regStart + 9, data, true);
+		}
+
+		if ((value == 4) && (m_V > 500))
+		{
+			MemDb::SetRealData(regStart + 9, m_V, true);
+			m_V = 0.0;
+		}
+	}
+
+	//判断是否有启动停止命令
+	if ((MemDb::GetRealDataWrited(realData, regStart + 1, true))//启停控制
+			|| (MemDb::GetRealDataWrited(realData1, regStart + 3, true))//系统模式
+			|| (MemDb::GetRealDataWrited(realData2, regStart + 4, true))//工作模式
+			|| (MemDb::GetRealDataWrited(realData3, regStart + 5, true))//恒流充放电电流设定值
+			|| (MemDb::GetRealDataWrited(realData4, regStart + 6, true))//恒流冲放电功率设定值
+			|| (MemDb::GetRealDataWrited(realData5, regStart + 7, true))//恒功充电功率基准值
+			|| (MemDb::GetRealDataWrited(realData6, regStart + 8, true))//恒功放电功率基准值
+			|| (MemDb::GetRealDataWrited(realData7, regStart + 9, true)))//恒压模式
+	{
+
+		MemDb::GetRealDataWrited(realData, regStart + 1, true);
+		MemDb::GetRealDataWrited(realData1, regStart + 3, true);
+		MemDb::GetRealDataWrited(realData2, regStart + 4, true);
+		MemDb::GetRealDataWrited(realData3, regStart + 5, true);
+		MemDb::GetRealDataWrited(realData4, regStart + 6, true);
+		MemDb::GetRealDataWrited(realData5, regStart + 7, true);
+		MemDb::GetRealDataWrited(realData6, regStart + 8, true);
+		MemDb::GetRealDataWrited(realData7, regStart + 9, true);
+
+		MemDb::GetRealData(realData, regStart + 1);
+		MemDb::GetRealData(realData1, regStart + 3);
+		MemDb::GetRealData(realData2, regStart + 4);
+		MemDb::GetRealData(realData3, regStart + 5);
+		MemDb::GetRealData(realData4, regStart + 6);
+		MemDb::GetRealData(realData5, regStart + 7);
+		MemDb::GetRealData(realData6, regStart + 8);
+		MemDb::GetRealData(realData7, regStart + 9);
+
+		realFrame[0] = realData.pv.data.iValue;//启停
+		realFrame[1] = realData1.pv.data.iValue;//系统模式
+		realFrame[2] = realData2.pv.data.iValue;//工作模式
+		realFrame[3] = realData3.pv.data.dbValue * 10;//恒流充放电电流设定值
+		realFrame[4] = (short)(realData4.pv.data.dbValue * 0.1);//恒流充放电功率设定值
+		realFrame[5] = (short)(realData5.pv.data.dbValue * 0.1);//恒功充电功率基准值
+		realFrame[6] = (short)(realData6.pv.data.dbValue * 0.1);//恒功放电功率基准值
+		realFrame[7] = realData7.pv.data.dbValue * 10;//恒压模式电压设定值
+
+		if((addr == 1)||(addr == 2))//汇流箱DC/DC、光伏模拟器DC/DC
+		{
+			realFrame[1] = 1;//只放电模式
+		}
+		else if(addr == 3)//电池双向DC/DC
+		{
+			realFrame[1] = 0;//充放电模式
+		}
+
+		if (realFrame[1] == 0)//充放电模式
+		{
+			zlog_debug(Util::m_zlog,"充放电模式");
+			if (realFrame[2] == 2)//恒流模式（电流设定值正为放电，负为充电）
+			{
+				zlog_debug(Util::m_zlog,"恒流充电");
+				//封装DCDC控制命令包
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = (realFrame[3] >> 8) & 0xFF;//恒流充放电电流设定值高字节
+				frameWrite.data[5] = realFrame[3] & 0xFF;//恒流充放电电流设定值低字节
+				frameWrite.data[6] = 0x00;
+				frameWrite.data[7] = 0x00;
+			}
+			else if (realFrame[2] == 5)//下垂模式
+			{
+				zlog_debug(Util::m_zlog,"下垂充放电");
+				//封装DCDC控制命令包
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = (realFrame[6] >> 8) & 0xff;//放电功率基准值高字节
+				frameWrite.data[5] = realFrame[6] & 0xff;//放电功率基准值低字节
+				frameWrite.data[6] = (realFrame[5] >> 8) & 0xff;//充电功率基准值高字节
+				frameWrite.data[7] = realFrame[5] & 0xff;//充电功率基准值低字节
+			}
+			else if (realFrame[2] == 4)//恒功模式
+			{
+				zlog_debug(Util::m_zlog,"恒功模式");
+				//封装DCDC控制命令包
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = (realFrame[4] >> 8) & 0xff;//恒功充放电电流设定值高字节
+				frameWrite.data[5] = realFrame[4] & 0xff;//恒功充放电电流设定值低字节
+				frameWrite.data[6] = 0x00;
+				frameWrite.data[7] = 0x00;
+			}
+			else if (realFrame[2] == 3)//恒压模式
+			{
+				zlog_debug(Util::m_zlog,"恒压模式");
+				//封装DCDC控制命令包
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = (realFrame[7] >> 8) & 0xff;//恒压模式电压设定值高字节
+				frameWrite.data[5] = realFrame[7] & 0xff;//恒压模式电压设定值低字节
+				frameWrite.data[6] = 0x00;
+				frameWrite.data[7] = 0x00;
+			}
+			else
+			{
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = 0x00;
+				frameWrite.data[5] = 0x00;
+				frameWrite.data[6] = 0x00;
+				frameWrite.data[7] = 0x00;
+			}
+		}
+		else if (realFrame[1] == 1)//只放电模式
+		{
+			zlog_debug(Util::m_zlog,"只放电模式");
+			if (realFrame[2] == 1)//最大功率追踪模式
+			{
+				//封装DCDC控制命令包
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = 0x00;
+				frameWrite.data[5] = 0x00;
+				frameWrite.data[6] = 0x00;
+				frameWrite.data[7] = 0x00;
+			}
+			else if(realFrame[2] == 4)//恒功模式
+			{
+				if(realFrame[4] < 0)
+				{
+					zlog_warn(Util::m_zlog,"当前为只放电模式，不可以设置充电");
+					realFrame[4] = 0;
+				}
+
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = (realFrame[4] >> 8) & 0xff;//恒功模式功率设定值高字节
+				frameWrite.data[5] = realFrame[4] & 0xff;//恒功模式功率设定值低字节
+				frameWrite.data[6] = 0x00;
+				frameWrite.data[7] = 0x00;
+			}
+			else
+			{
+				frameWrite.type = Can::EXTENDED_FRAME;//扩展帧
+				frameWrite.id = (0x10000032) | ((((0x10000032 >> 8) & 0xFF)
+						| (0x64 + addr)) << 8);
+				frameWrite.data[0] = realFrame[0] & 0xff;
+				frameWrite.data[1] = realFrame[1] & 0xff;
+				frameWrite.data[2] = realFrame[2] & 0xff;
+				frameWrite.data[3] = m_SendLifeSignal[addr - 1]++;
+				frameWrite.data[4] = 0x00;
+				frameWrite.data[5] = 0x00;
+				frameWrite.data[6] = 0x00;
+				frameWrite.data[7] = 0x00;
+			}
+		}
+
+		//发送控制命令
+		ret = m_can->Write(frameWrite);
+
+		if (ret == ErrorInfo::ERR_OK)
+		{
+			m_frameWrite[addr - 1].id = frameWrite.id;
+			m_frameWrite[addr - 1].type = frameWrite.type;
+			for (unsigned int i = 0; i < frameWrite.data.size(); i++)
+			{
+				m_frameWrite[addr - 1].data[i] = frameWrite.data[i];
+			}
+			m_startTimer[addr - 1].SetStartTime();
+			m_flag[addr - 1] = 1;
+			m_contolFlag[addr - 1] = 1;
+		}
+		else
+		{
+			zlog_warn(Util::m_zlog,"发送数据失败");
+			return ret;
+		}
+	}
+
+	MemDb::GetRealData(realDataComm,regStart,false);//获取通讯状态
+	if(realDataComm.pv.data.iValue == 0)//通讯失败
+	{
+		m_contolFlag[addr - 1] = 0;
+	}
+
+	if (m_contolFlag[addr - 1] == 1)
+	{
+		//重复下发控制帧，以证明通讯正常
+		m_controlStart[addr - 1].SetEndTime();
+		if (m_controlStart[addr - 1].GetMilliSeconds() > 100)
+		{
+			m_frameWrite[addr - 1].data[3] = m_SendLifeSignal[addr - 1]++;
+			ret = m_can->Write(m_frameWrite[addr - 1]);
+			m_controlStart[addr - 1].SetStartTime();
+		}
+	}
+
+	if(m_SendLifeSignal[addr - 1] == 255)
+	{
+		m_SendLifeSignal[addr - 1] =0;
+	}
+
+
+	zlog_info(Util::m_zlog,"发送数据结束");
+	return ret;
+}

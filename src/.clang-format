@@ -1,0 +1,6 @@
+IndentWidth: 4
+AlignTrailingComments: true
+
+AlignConsecutiveAssignments: true
+AlignArrayOfStructures: Right
+
