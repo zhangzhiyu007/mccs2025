@@ -1,0 +1,93 @@
+/*
+ * TsingHuaDCDC.h
+ *
+ *  Created on: 2013-10-14
+ *      Author: liuhaitao
+ */
+
+#ifndef TsingHuaDCDC_H_
+#define TsingHuaDCDC_H_
+#include "../../../db/Device.h"
+#include "../../../util/Util.h"
+#include "../../can/Can.h"
+#include "../../../db/MemDb.h"
+#include "../../inner/IO.h"
+
+class Can;
+
+class TsingHuaDCDC
+{
+public:
+	TsingHuaDCDC();
+	virtual ~TsingHuaDCDC();
+
+	//保存串口指针
+	void SetCan(Can* can);
+
+	/*
+	 *  Read
+	 *  功能: 读取DCDC数据
+	 *  输入：
+	 *  dev    :Device::SlaveDev* 从设备指针
+	 *  frame   :Can::FrameInfo& CAN信息帧
+	 *  输出：返回错误码ErrorInfo,成功返回ErrorInfo::ERR_OK
+	 */
+    int Read(Device::SlaveDev* dev,Can::FrameInfo frame);
+
+	/*
+	 *  Preset
+	 *  功能: 设置DCDC命令
+	 *  输入：
+	 *  dev    :Device::SlaveDev* 从设备指针
+	 *  输出：返回错误码ErrorInfo,成功返回ErrorInfo::ERR_OK
+	 */
+    int Preset(Device::SlaveDev* dev);
+
+public:
+protected:
+	/*
+	 *  AcltDcdcRead
+	 *  功能: 读取型号ACLT-DCDC数据
+	 *  输入：
+	 *  dev    :Device::SlaveDev* 从设备指针
+	 *  frame   :Can::FrameInfo& CAN信息帧
+	 *  输出：返回错误码ErrorInfo,成功返回ErrorInfo::ERR_OK
+	 */
+    int AcltDcdcRead(Device::SlaveDev* dev,Can::FrameInfo frame);
+
+	/*
+	 *  AcltDcdcPreset
+	 *  功能: 设置型号ACLT-DCDC命令
+	 *  输入：
+	 *  dev    :Device::SlaveDev* 从设备指针
+	 *  输出：返回错误码ErrorInfo,成功返回ErrorInfo::ERR_OK
+	 */
+    int AcltDcdcPreset(Device::SlaveDev* dev);
+
+	//变量
+public:
+protected:
+private:
+
+	Can*  m_can;
+
+	//计算时间差
+	StatTimer m_startTimer[3];
+	StatTimer m_controlStart[3];
+	//重复次数
+	int m_retries[3];
+	int m_num[3];
+	//存取上次的生命信号
+	int m_lifeSignal[3];
+	int m_SendLifeSignal[3];
+	//发送控制数据标志位
+	int m_flag[3];
+	int m_contolFlag[3];
+	int m_pvsFlag;
+
+	float m_V;
+	//保存发送控制信息数据
+	Can::FrameInfo m_frameWrite[3];
+};
+
+#endif /* TsingHuaDCDC_H_ */
