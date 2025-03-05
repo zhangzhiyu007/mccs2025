@@ -270,7 +270,7 @@ int ZJNCLoad::DCLoad_b_Read(Device::SlaveDev* dev) {
 		i_data = values[9]; 							MemDb::SetRealData(regStart + 15, i_data, false);
 		i_data = (values[10] >> 8) & 0xFF; 				MemDb::SetRealData(regStart + 16, i_data, false);
 		i_data = values[10] & 0xFF; 					MemDb::SetRealData(regStart + 17, i_data, false);
-
+		
 		MemDb::SetRealData(regStart + 0, comm);
 	}
 	else {

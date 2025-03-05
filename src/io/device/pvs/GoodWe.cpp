@@ -133,7 +133,8 @@ int GoodWe::Read(Device::SlaveDev *dev) {
 
     // 30118 0x75A6 Phase voltage AN 电网 A 相电压 RO U16 1 10 V [0, 0]
     // 30119 0x75A7 Phase voltage BN 电网 B 相电压 RO U16 1 10 V [0, 0]
-    // 单相机型不支持 30120 0x75A8 Phase voltage CN 电网 C 相电压 RO U16 1 10 V
+    // 单相机型不支持 
+    // 30120 0x75A8 Phase voltage CN 电网 C 相电压 RO U16 1 10 V
     // [0, 0] 单相机型不支持 30121 0x75A9 Phase A current 电网 A 相电流 RO U16 1
     // 10 A [0, 0] 30122 0x75AA Phase B current 电网 B 相电流 RO U16 1 10 A [0,
     // 0] 单相机型不支持 30123 0x75AB Phase C current 电网 C 相电流 RO U16 1 10

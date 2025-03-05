@@ -92,7 +92,7 @@ int EmcDCDC::Read(Device::SlaveDev *dev) {
         f_data = (short)values[4] * 0.1;
         MemDb::SetRealData(regStart + 6, f_data, false);
         // 输出功率
-        f_data = (short)values[9] ;
+        f_data = (short)values[9] *10;
         MemDb::SetRealData(regStart + 7, f_data, false);
         // IGBT温度
         f_data = values[10] * 0.1;
@@ -144,11 +144,11 @@ int EmcDCDC::Read(Device::SlaveDev *dev) {
     if (ErrorInfo::ERR_OK == ret) {
         comm = true;
         // 降压方向最大电流
-        i_data = values[0];
+        i_data = values[0]*0.1;
         MemDb::SetRealData(regStart + 11, i_data, false);
 
         // 升压方向最大电流
-        i_data = values[1];
+        i_data = values[1]*0.1;
         MemDb::SetRealData(regStart + 12, i_data, false);
     } else {
         comm = false;
@@ -164,7 +164,7 @@ int EmcDCDC::Read(Device::SlaveDev *dev) {
     if (ErrorInfo::ERR_OK == ret) {
         comm = true;
         // 本地运行最大功率
-        f_data = values[0] ;
+        f_data = values[0] *100;
         MemDb::SetRealData(regStart + 13, f_data, false);
     } else {
         comm = false;
@@ -180,8 +180,8 @@ int EmcDCDC::Read(Device::SlaveDev *dev) {
     if (ErrorInfo::ERR_OK == ret) {
         comm = true;
         // 远程运行最大功率
-        i_data = values[0] ;
-        MemDb::SetRealData(regStart + 14, i_data, false);
+        f_data = values[0] ;
+        MemDb::SetRealData(regStart + 14, f_data, false);
     } else {
         comm = false;
         zlog_warn(Util::m_zlog, "%s 设备 读取数据失败", dev->name.c_str());
