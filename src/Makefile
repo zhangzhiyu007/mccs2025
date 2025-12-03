@@ -26,10 +26,13 @@ DIR_OBJECTS += $(dir ${C_OBJECTS})
 
 WINDRES = windres
 
-INC = -I ../api/inc/
+# Location of vendor headers and libraries. Override if the api folder is elsewhere.
+API_DIR ?= ../api
+
+INC = -I $(API_DIR)/inc/
 CFLAGS = -Wall -fexceptions
-RESINC = 
-LIB = -lpthread -ldl -lrt  -lsocketapi  -lEMFU_ARM_ODM -L ../api/lib/
+RESINC =
+LIB = -lpthread -ldl -lrt  -lsocketapi  -lEMFU_ARM_ODM -L $(API_DIR)/lib/
 LDFLAGS = 
 
 INC_RELEASE = $(INC)
