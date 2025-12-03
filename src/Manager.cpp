@@ -40,6 +40,10 @@ int Manager::Init() {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
         return ErrorInfo::ERR_NULL;
     }
+    if (!dev->Init()) {
+        zlog_error(Util::m_zlog, "初始化设备信息失败");
+        return ErrorInfo::ERR_FAILED;
+    }
     zlog_error(Util::m_zlog, "初始化设备信息成功");
 #if 1
     // 3、开启通讯线程
@@ -78,7 +82,7 @@ int Manager::Init() {
 
     zlog_error(Util::m_zlog, "系统启动结束");
 
-    return true;
+    return ret;
 }
 
 void Manager::Uninit() {

@@ -795,16 +795,14 @@ int Socket::TxRxMsg(String& dataRead, String& dataWrite, int len)
 		return ErrorInfo::ERR_READ;
 	}
 
-#if 1
-	if ((ret < len) && (ret == 0))
-	{
-		Unlock();
-		zlog_debug(Util::m_zlog,"读取数据数量不足: %d < %d",ret,len);
-		return ErrorInfo::ERR_INV_RESP;
-	}
-#endif
-	Unlock();
-	zlog_debug(Util::m_zlog,"读写操作完成");
+        if (ret < len)
+        {
+                Unlock();
+                zlog_debug(Util::m_zlog,"读取数据数量不足: %d < %d",ret,len);
+                return ErrorInfo::ERR_INV_RESP;
+        }
+        Unlock();
+        zlog_debug(Util::m_zlog,"读写操作完成");
 
 	return ErrorInfo::ERR_OK;
 }
