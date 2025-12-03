@@ -3,14 +3,14 @@
 #------------------------------------------------------------------------------#
 
 
-# COMPER=/usr/local/arm_v5te_gcc-4.8-linaro_eglibc_eabi/bin/arm-openwrt-linux-gnueabi-#2022
-COMPER=/usr/local/arm_cortex-a8+vfpv3_gcc-4.8-linaro_eglibc-2.19_eabi/bin/arm-openwrt-linux-gnueabi-#6216
-# COMPER=cortex_a8-linux-#6216
-CC = $(COMPER)gcc
-CXX = $(COMPER)g++
-AR = $(COMPER)ar
-LD = $(COMPER)g++
-STRIP=$(COMPER)strip
+# Optional cross toolchain prefix (e.g. /path/to/arm-linux-gnueabi-)
+# Leave empty to use the host toolchain.
+CROSS ?=
+CC = $(if $(strip $(CROSS)),$(CROSS)gcc,gcc)
+CXX = $(if $(strip $(CROSS)),$(CROSS)g++,g++)
+AR = $(if $(strip $(CROSS)),$(CROSS)ar,ar)
+LD = $(if $(strip $(CROSS)),$(CROSS)g++,g++)
+STRIP = $(if $(strip $(CROSS)),$(CROSS)strip,strip)
 
 
 OBJDIR_RELEASE := ../OBJ
@@ -26,10 +26,13 @@ DIR_OBJECTS += $(dir ${C_OBJECTS})
 
 WINDRES = windres
 
-INC = -I ../api/inc/
+# Location of vendor headers and libraries. Override if the api folder is elsewhere.
+API_DIR ?= ../api
+
+INC = -I $(API_DIR)/inc/
 CFLAGS = -Wall -fexceptions
-RESINC = 
-LIB = -lpthread -ldl -lrt  -lsocketapi  -lEMFU_ARM_ODM -L ../api/lib/
+RESINC =
+LIB = -lpthread -ldl -lrt  -lsocketapi  -lEMFU_ARM_ODM -L $(API_DIR)/lib/
 LDFLAGS = 
 
 INC_RELEASE = $(INC)

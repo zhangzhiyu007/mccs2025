@@ -12,7 +12,8 @@
 Device::DevType Device::m_devType[128]; // 设备类型数组
 int Device::m_devTypeNum = 0;           // 设备类型数量
 Device *Device::m_dev    = NULL;
-Device::Device() {
+Device::Device()
+    : m_initialized(false), m_initSuccess(false) {
     // TODO 构造函数
     m_slaveDevArray.clear();
     m_controllerType = DevControllerType::SLAVE;
@@ -43,12 +44,21 @@ void Device::FreeInstanse() {
 }
 
 bool Device::Init() {
+    if (m_initialized) {
+        return m_initSuccess;
+    }
+
     zlog_info(Util::m_zlog, "配置信息初始化");
-    bool ret = false;
+    m_initialized = true;
 
-    ret = this->InitSlaveDevConfig();
-    ret = this->InitMemDb();
+    const bool configOk = this->InitSlaveDevConfig();
+    bool ret            = configOk;
 
+    if (configOk) {
+        ret = this->InitMemDb();
+    }
+
+    m_initSuccess = ret;
     zlog_info(Util::m_zlog, "配置信息初始化%s", ret ? "成功" : "失败");
     return ret;
 }
@@ -71,6 +81,9 @@ void Device::Uninit() {
     }
 
     m_slaveDevArray.clear();
+
+    m_initialized = false;
+    m_initSuccess = false;
 
     zlog_info(Util::m_zlog, "反初始化结束");
     return;

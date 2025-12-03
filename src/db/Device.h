@@ -533,6 +533,9 @@ class Device {
     int m_controllerType; // 本控制器类型
     int m_controllerAddr; // 本控制器地址
 
+    bool m_initialized;   // 初始化是否已经执行
+    bool m_initSuccess;   // 初始化结果缓存
+
     static Device *m_dev;
 };
 
