@@ -47,6 +47,12 @@ private:
 public:
 protected:
 private:
+	bool m_memDbInited = false;
+	bool m_deviceInited = false;
+	bool m_ioStarted = false;
+	bool m_netStarted = false;
+	bool m_ctrlStarted = false;
+
 	//IO通讯
 	IoManager m_io;
 

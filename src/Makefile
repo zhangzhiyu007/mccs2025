@@ -3,14 +3,14 @@
 #------------------------------------------------------------------------------#
 
 
-# COMPER=/usr/local/arm_v5te_gcc-4.8-linaro_eglibc_eabi/bin/arm-openwrt-linux-gnueabi-#2022
-COMPER=/usr/local/arm_cortex-a8+vfpv3_gcc-4.8-linaro_eglibc-2.19_eabi/bin/arm-openwrt-linux-gnueabi-#6216
-# COMPER=cortex_a8-linux-#6216
-CC = $(COMPER)gcc
-CXX = $(COMPER)g++
-AR = $(COMPER)ar
-LD = $(COMPER)g++
-STRIP=$(COMPER)strip
+# Optional cross toolchain prefix (e.g. /path/to/arm-linux-gnueabi-)
+# Leave empty to use the host toolchain.
+CROSS ?=
+CC = $(if $(strip $(CROSS)),$(CROSS)gcc,gcc)
+CXX = $(if $(strip $(CROSS)),$(CROSS)g++,g++)
+AR = $(if $(strip $(CROSS)),$(CROSS)ar,ar)
+LD = $(if $(strip $(CROSS)),$(CROSS)g++,g++)
+STRIP = $(if $(strip $(CROSS)),$(CROSS)strip,strip)
 
 
 OBJDIR_RELEASE := ../OBJ
@@ -26,11 +26,23 @@ DIR_OBJECTS += $(dir ${C_OBJECTS})
 
 WINDRES = windres
 
-INC = -I ../api/inc/
+# Location of vendor headers and libraries. Override if the api folder is elsewhere.
+API_DIR ?= ../api
+
+# Toggle vendor binary linkage: set USE_API_LIBS=0 for host-only builds when ARM libs
+# are unavailable (e.g., for syntax-checking on x86).
+USE_API_LIBS ?= 1
+
+API_LIBS :=
+ifeq ($(USE_API_LIBS),1)
+API_LIBS := -lsocketapi -lEMFU_ARM_ODM
+endif
+
+INC = -I $(API_DIR)/inc/
 CFLAGS = -Wall -fexceptions
-RESINC = 
-LIB = -lpthread -ldl -lrt  -lsocketapi  -lEMFU_ARM_ODM -L ../api/lib/
-LDFLAGS = 
+RESINC =
+LIB = -lpthread -ldl -lrt -L $(API_DIR)/lib/ $(API_LIBS)
+LDFLAGS =
 
 INC_RELEASE = $(INC)
 CFLAGS_RELEASE = $(CFLAGS) -O2
@@ -73,4 +85,3 @@ ${OBJDIR_RELEASE}/%.o: %.c
 
 clean_release:
 	rm -rf $(OUT_DIR_RELEASE) $(OBJDIR_RELEASE)
-

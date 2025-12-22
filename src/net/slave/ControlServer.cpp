@@ -73,13 +73,13 @@ void ControlServer::Run()
 			break;
 		}
 
-		//阻塞式读取数据
-		if (ErrorInfo::ERR_OPENED == RecvInfo())
-		{
-			//连接断开
-			zlog_warn(Util::m_zlog, "客户端断开连接,停止线程工作,%d",(int)m_masterConfig);
-			Cancel();
-		}
+                //阻塞式读取数据
+                if (ErrorInfo::ERR_OPENED == RecvInfo())
+                {
+                        //连接断开
+                        zlog_warn(Util::m_zlog, "客户端断开连接,停止线程工作,%p", static_cast<void*>(m_masterConfig));
+                        Cancel();
+                }
 
 		usleep(5000);
 	}
