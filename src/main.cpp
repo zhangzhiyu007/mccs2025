@@ -8,10 +8,20 @@
 #include "./Manager.h"
 #include "./db/Device.h"
 #include "./util/Util.h"
+#include <signal.h>
+#include <unistd.h>
+
+namespace {
+volatile sig_atomic_t g_running = 1;
+
+void HandleSignal(int) { g_running = 0; }
+} // namespace
 
 //主函数
 int main(int argc, char **argv) {
     bool ret = false;
+    signal(SIGINT, HandleSignal);
+    signal(SIGTERM, HandleSignal);
     // 1、初始化
     ret = Util::Init();
     if (!ret) {
@@ -41,12 +51,13 @@ int main(int argc, char **argv) {
                ret ? "成功" : "失败");
 #endif
 
-    while (true) {
+    while (g_running) {
         //喂狗操作
         watchDog.Feed();
         sleep(1);
     }
 
+    zlog_error(Util::m_zlog, "收到退出信号，开始关闭系统");
     zlog_error(Util::m_zlog, "系统关闭");
     zlog_error(Util::m_zlog_sysStatus, "系统关闭");
     //关闭看门狗

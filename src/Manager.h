@@ -57,6 +57,13 @@ private:
 	CtrlManager m_ctrl;
 
 	PvVolatility m_pvVolatility;//光伏波动率线程
+
+	bool m_memDbInited;
+	bool m_deviceInited;
+	bool m_ioInited;
+	bool m_netInited;
+	bool m_ctrlInited;
+	bool m_pvStarted;
 };
 
 #endif /* MANAGER_H_ */
