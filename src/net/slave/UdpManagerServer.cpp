@@ -179,13 +179,13 @@ int UdpManagerServer::RecvInfo(UdpNode* udp)
 		zlog_warn(Util::m_zlog, "UdpManagerServer：udp没有打开");
 		return ErrorInfo::ERR_OPENED;
 	}
-	//2.读取udp数据,判断有没有数据,阻塞式读取数据
-	ret = udp->Recvfrom(addr, recvStr,MAX_VALUE);
-	if (ret <= 0)
-	{
-		zlog_warn(Util::m_zlog, "UdpManagerServer：没有收到数据");
-		return ErrorInfo::ERR_NO_DATA;
-	}
+        //2.读取udp数据,判断有没有数据，带超时读取以便可响应退出
+        ret = udp->Recvfrom(addr, recvStr, MAX_VALUE, 0, m_timeout, 0);
+        if (ret <= 0)
+        {
+                zlog_warn(Util::m_zlog, "UdpManagerServer：没有收到数据");
+                return ErrorInfo::ERR_NO_DATA;
+        }
 
 	//接收到数据
 	zlog_info(Util::m_zlog, "UdpManagerServer：解析接收数据");

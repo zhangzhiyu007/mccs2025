@@ -31,6 +31,7 @@ int Manager::Init() {
         zlog_error(Util::m_zlog, "初始化实时数据库失败");
         return ErrorInfo::ERR_OPENED;
     }
+    m_memDbInited = true;
     zlog_error(Util::m_zlog, "初始化实时数据库成功");
 
     // 2、初始化设备信息
@@ -40,6 +41,11 @@ int Manager::Init() {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
         return ErrorInfo::ERR_NULL;
     }
+    if (!dev->Init()) {
+        zlog_error(Util::m_zlog, "初始化设备信息失败");
+        return ErrorInfo::ERR_FAILED;
+    }
+    m_deviceInited = true;
     zlog_error(Util::m_zlog, "初始化设备信息成功");
 #if 1
     // 3、开启通讯线程
@@ -49,6 +55,7 @@ int Manager::Init() {
         zlog_error(Util::m_zlog, "启动IO通讯失败");
         return ErrorInfo::ERR_FAILED;
     }
+    m_ioStarted = true;
     zlog_error(Util::m_zlog, "启动IO通讯成功");
 #endif
 #if 1
@@ -59,6 +66,7 @@ int Manager::Init() {
         zlog_error(Util::m_zlog, "启动站内通讯失败");
         return ErrorInfo::ERR_FAILED;
     }
+    m_netStarted = true;
     zlog_error(Util::m_zlog, "启动站内通讯成功");
 #endif
 
@@ -70,6 +78,7 @@ int Manager::Init() {
         zlog_error(Util::m_zlog, "启动控制策略失败");
         return ErrorInfo::ERR_FAILED;
     }
+    m_ctrlStarted = true;
     zlog_error(Util::m_zlog, "启动控制策略成功");
 #endif
 
@@ -78,26 +87,41 @@ int Manager::Init() {
 
     zlog_error(Util::m_zlog, "系统启动结束");
 
-    return true;
+    return ret;
 }
 
 void Manager::Uninit() {
     zlog_error(Util::m_zlog, "系统关闭开始");
     //关闭控制策略
-    m_ctrl.Uninit();
+    if (m_ctrlStarted) {
+        m_ctrl.Uninit();
+        m_ctrlStarted = false;
+    }
 
     //关闭站内通讯
-    m_net.Uninit();
+    if (m_netStarted) {
+        m_net.Uninit();
+        m_netStarted = false;
+    }
 
     //关闭通讯线程池
-    m_io.Uninit();
+    if (m_ioStarted) {
+        m_io.Uninit();
+        m_ioStarted = false;
+    }
 
     //实时数据库结束
-    MemDb::Uninit();
+    if (m_memDbInited) {
+        MemDb::Uninit();
+        m_memDbInited = false;
+    }
 
     //设备反初始化
-    Device *dev = Device::GetInstance();
-    dev->FreeInstanse();
+    if (m_deviceInited) {
+        Device *dev = Device::GetInstance();
+        dev->FreeInstanse();
+        m_deviceInited = false;
+    }
 
     zlog_error(Util::m_zlog, "系统关闭结束");
 }

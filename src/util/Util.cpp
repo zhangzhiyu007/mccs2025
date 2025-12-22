@@ -400,7 +400,7 @@ bool Util::CreateMem(void** shmt, int& shmid, int id, int len)
 		shmt = NULL;
 		return false;
 	}
-	zlog_warn(Util::m_zlog, "连接共享内存成功:内存地址=%d",(int)*shmt);
+        zlog_warn(Util::m_zlog, "连接共享内存成功:内存地址=%p", *shmt);
 
 	return true;
 }
@@ -420,7 +420,7 @@ bool Util::OpenMem(void** shmt, int& shmid, int id, int len)
 		shmt = NULL;
 		return false;
 	}
-	zlog_warn(Util::m_zlog, "连接共享内存成功:内存地址=%d",(int)*shmt);
+        zlog_warn(Util::m_zlog, "连接共享内存成功:内存地址=%p", *shmt);
 
 	return true;
 }
