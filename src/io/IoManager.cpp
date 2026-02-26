@@ -81,6 +81,11 @@ int IoManager::Init()
 	//5、开启Modbus TCP从站线程
 	zlog_info(Util::m_zlog, "开启Modbus TCP从站服务器");
 	Device* dev = Device::GetInstance();
+	if (NULL == dev)
+	{
+		zlog_error(Util::m_zlog, "获取设备实例失败");
+		return ErrorInfo::ERR_NULL;
+	}
 	m_check.addr = dev->GetControllerAddr();
 	m_tcpThreadedServer.SetParam(&m_check);
 	m_tcpThreadedServer.Start(m_modbusTcpFactory, 502);

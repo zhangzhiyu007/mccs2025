@@ -24,6 +24,11 @@ int Manager::Init() {
     int ret      = ErrorInfo::ERR_OK;
     bool success = false;
 
+    auto rollbackAndReturn = [this](int err) {
+        this->Uninit();
+        return err;
+    };
+
     // 1、实时数据库初始化
     zlog_error(Util::m_zlog, "初始化实时数据库");
     success = MemDb::Init();
@@ -39,11 +44,11 @@ int Manager::Init() {
     Device *dev = Device::GetInstance();
     if (NULL == dev) {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
-        return ErrorInfo::ERR_NULL;
+        return rollbackAndReturn(ErrorInfo::ERR_NULL);
     }
     if (!dev->Init()) {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
-        return ErrorInfo::ERR_FAILED;
+        return rollbackAndReturn(ErrorInfo::ERR_FAILED);
     }
     m_deviceInited = true;
     zlog_error(Util::m_zlog, "初始化设备信息成功");
@@ -53,7 +58,7 @@ int Manager::Init() {
     ret = m_io.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动IO通讯失败");
-        return ErrorInfo::ERR_FAILED;
+        return rollbackAndReturn(ErrorInfo::ERR_FAILED);
     }
     m_ioStarted = true;
     zlog_error(Util::m_zlog, "启动IO通讯成功");
@@ -64,7 +69,7 @@ int Manager::Init() {
     ret = m_net.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动站内通讯失败");
-        return ErrorInfo::ERR_FAILED;
+        return rollbackAndReturn(ErrorInfo::ERR_FAILED);
     }
     m_netStarted = true;
     zlog_error(Util::m_zlog, "启动站内通讯成功");
@@ -76,7 +81,7 @@ int Manager::Init() {
     ret = m_ctrl.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动控制策略失败");
-        return ErrorInfo::ERR_FAILED;
+        return rollbackAndReturn(ErrorInfo::ERR_FAILED);
     }
     m_ctrlStarted = true;
     zlog_error(Util::m_zlog, "启动控制策略成功");

@@ -9,9 +9,23 @@
 #include "./db/Device.h"
 #include "./util/Util.h"
 
+static volatile sig_atomic_t g_keepRunning = 1;
+
+static void HandleSignal(int sig) {
+    (void)sig;
+    g_keepRunning = 0;
+}
+
+static void RegisterSignalHandlers() {
+    signal(SIGINT, HandleSignal);
+    signal(SIGTERM, HandleSignal);
+}
+
 //主函数
 int main(int argc, char **argv) {
     bool ret = false;
+    RegisterSignalHandlers();
+
     // 1、初始化
     ret = Util::Init();
     if (!ret) {
@@ -41,7 +55,7 @@ int main(int argc, char **argv) {
                ret ? "成功" : "失败");
 #endif
 
-    while (true) {
+    while (g_keepRunning) {
         //喂狗操作
         watchDog.Feed();
         sleep(1);
