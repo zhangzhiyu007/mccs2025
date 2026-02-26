@@ -11,7 +11,12 @@
 #include "./db/MemDb.h"
 #include "./util/Util.h"
 
-Manager::Manager() {
+Manager::Manager()
+    : m_memDbInited(false),
+      m_deviceInited(false),
+      m_ioStarted(false),
+      m_netStarted(false),
+      m_ctrlStarted(false) {
     // TODO 构造函数
 }
 
