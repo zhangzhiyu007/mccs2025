@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
     ret = manager.Init();
     if (!ret) {
         zlog_error(Util::m_zlog, "启动服务器管理接口失败");
+        manager.Uninit();
         Util::Uninit();
         return 0;
     }
