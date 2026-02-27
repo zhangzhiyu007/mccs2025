@@ -326,7 +326,7 @@ bool ControlServer::SaveCtrlData(Iec103::PacketData& data)
 		//校验数据长度,每个数据占7个字节
 		if ((data.dataLength * 7) > data.data.size())
 		{
-			zlog_debug(Util::m_zlog, "校验数据长度不正确:dataLength=%d>size=%d",data.dataLength*7,data.data.size());
+			zlog_debug(Util::m_zlog, "校验数据长度不正确:dataLength=%d>size=%d", data.dataLength * 7, (int)data.data.size());
 			success = false;
 		}
 		else

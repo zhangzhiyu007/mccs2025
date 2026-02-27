@@ -98,7 +98,7 @@ void ComThread::Run()
 
 		}
 	}
-	zlog_warn(Util::m_zlog, "串口%d查询线程:从设备数量=%d,该串口从设备数量=%d",m_com->GetPort(),slaveArray->size(),runArray.size());
+	zlog_warn(Util::m_zlog, "串口%d查询线程:从设备数量=%d,该串口从设备数量=%d",m_com->GetPort(),(int)slaveArray->size(),(int)runArray.size());
 
 	int ret = ErrorInfo::ERR_OK;
 	//通讯状态

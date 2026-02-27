@@ -222,6 +222,7 @@ bool MemDb::SetRealData(int addr, int data, bool writed) {
     realData.addr = addr;
     // time(&realData.now);
     realData.pv.type             = RealData::INT;
+    realData.pv.data.iValue      = 0;
     realData.pv.data_last.iValue = realData.pv.data.iValue;
     realData.pv.data.iValue      = data;
     realData.readed              = !writed;
@@ -235,6 +236,7 @@ bool MemDb::SetRealData(int addr, float data, bool writed) {
     realData.addr = addr;
     // time(&realData.now);
     realData.pv.type              = RealData::DB;
+    realData.pv.data.dbValue      = 0.0f;
     realData.pv.data_last.dbValue = realData.pv.data.dbValue;
     realData.pv.data.dbValue      = data;
     realData.readed               = !writed;

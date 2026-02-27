@@ -26,10 +26,10 @@ void ChargerController::SetTcp(TcpClient *tcpClient) {
 // 读取设备数据
 int ChargerController::Read(Device::SlaveDev *dev) {
     if (NULL == dev) {
-        zlog_warn(Util::m_zlog, "< %s > 读取数据失败", dev->name.c_str());
+        zlog_warn(Util::m_zlog, "设备为NULL, 读取数据失败");
         return ErrorInfo::ERR_NULL;
     }
-    if (!m_tcpClient->IsOpened())
+    if (NULL == m_tcpClient || !m_tcpClient->IsOpened())
         return ErrorInfo::ERR_OPENED; // TCP连接未开启时返回错误
 
     return ModbusRead(dev); // 调用内部函数进行Modbus读取
@@ -40,7 +40,7 @@ int ChargerController::Write(Device::SlaveDev *dev) {
         zlog_warn(Util::m_zlog, "设备空");
         return ErrorInfo::ERR_NULL;
     }
-    if (!m_tcpClient->IsOpened())
+    if (NULL == m_tcpClient || !m_tcpClient->IsOpened())
         return ErrorInfo::ERR_OPENED; // TCP连接未开启时返回错误
 
     return ModbusPreset(dev); // 调用内部函数进行Modbus设置
