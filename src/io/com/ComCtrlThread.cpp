@@ -94,7 +94,7 @@ void ComCtrlThread::Run()
 
 		}
 	}
-	zlog_info(Util::m_zlog, "控制线程串口%d查询线程:从设备数量=%d,该串口从设备数量=%d",m_com->GetPort(),slaveArray->size(),runArray.size());
+	zlog_info(Util::m_zlog, "控制线程串口%d查询线程:从设备数量=%d,该串口从设备数量=%d",m_com->GetPort(),(int)slaveArray->size(),(int)runArray.size());
 
 	//通讯状态
 	int uNoResponse = 0;//当前读取失败的次数

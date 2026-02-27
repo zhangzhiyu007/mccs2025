@@ -33,7 +33,7 @@ int JingshiPcs::Read(Device::SlaveDev *dev) {
         zlog_warn(Util::m_zlog, "从设备为NULL");
         return ErrorInfo::ERR_NULL;
     }
-    if (!m_tcpClient->IsOpened()) {
+    if (NULL == m_tcpClient || !m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "tcp 未打开");
         return ErrorInfo::ERR_OPENED;
     }
@@ -333,7 +333,7 @@ int JingshiPcs::Preset(Device::SlaveDev *dev) {
         zlog_warn(Util::m_zlog, "从设备为NULL");
         return ErrorInfo::ERR_NULL;
     }
-    if (!m_tcpClient->IsOpened()) {
+    if (NULL == m_tcpClient || !m_tcpClient->IsOpened()) {
         return ErrorInfo::ERR_OPENED;
     }
 

@@ -77,7 +77,7 @@ int GreeKongtiao::GreeKongtiaoRead(Device::SlaveDev* dev)
 	}
 
 	//判断串口是否打开
-	if (!m_tcpClient->IsOpened())
+	if (NULL == m_tcpClient || !m_tcpClient->IsOpened())
 	{
 		return ErrorInfo::ERR_OPENED;
 	}
