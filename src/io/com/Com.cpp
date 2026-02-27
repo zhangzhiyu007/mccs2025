@@ -339,7 +339,9 @@ int Com::Write(String& dataWrite)
 
 				if(res == 0)
 				{
-					continue;
+					delete[] tmpDataWrite;
+					zlog_warn(Util::m_zlog, "向串口写入数据失败: write返回0");
+					return -1;
 				}
 
 				done += (size_t)res;
