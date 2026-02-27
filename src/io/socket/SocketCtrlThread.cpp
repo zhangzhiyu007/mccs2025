@@ -68,7 +68,7 @@ void SocketCtrlThread::Run() {
     zlog_warn(Util::m_zlog, "查找指定以太网从设备");
     FindSocketSlaveDevs();
     zlog_warn(Util::m_zlog, "查找指定以太网从设备,数量=%d",
-              m_socketSlaveDevs.size());
+              (int)m_socketSlaveDevs.size());
 
     // 设备IP和端口地址
     Address(m_socketAddress->ip, m_socketAddress->port);

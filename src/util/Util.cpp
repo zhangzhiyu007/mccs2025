@@ -112,7 +112,15 @@ bool Util::InitZlog()
 
 	//读取当前目录
 	Util::GetCurDir(curDir, ARRAY_LENGTH_1024);
-	sprintf(curFile, "%sconf/log.conf", curDir);
+	const size_t curDirLen = strlen(curDir);
+	const size_t suffixLen = sizeof("conf/log.conf") - 1;
+	if ((curDirLen + suffixLen + 1) > sizeof(curFile))
+	{
+		printf("InitZlog path too long\n");
+		return false;
+	}
+	memcpy(curFile, curDir, curDirLen);
+	memcpy(curFile + curDirLen, "conf/log.conf", suffixLen + 1);
 
 	//读取配置文件
 	printf("InitZlog file path = %s\n",curFile);
@@ -163,22 +171,39 @@ bool Util::GetMemUsage(float& mem)
 		zlog_warn(Util::m_zlog,"打开/proc/meminfo文件失败");
 		return false;
 	}
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &memTotal, name1);
 
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &memFree, name1);
 
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &buffers, name1);
 
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &cached, name1);
 
 	used = memTotal - memFree;
 	usage = (float) used / memTotal * 100;
 
 	mem = usage;
+	fclose(fp);
 	return true;
 }
 

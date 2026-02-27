@@ -21,25 +21,23 @@ StatTimer::~StatTimer()
 //统计时差，时间到,s
 bool StatTimer::TimeToSeconds(int seconds)
 {
-	bool ret=false;
-	this->SetEndTime();
-	if(GetSeconds()>=seconds)
+	if (seconds <= 0)
 	{
-		ret=true;
+		return true;
 	}
 
-	return ret;
+	this->SetEndTime();
+	return GetSeconds() >= (unsigned int)seconds;
 };
 
 //统计时差，时间到.ms
 bool StatTimer::TimeToMilliSeconds(int milliSeconds)
 {
-	bool ret = false;
-	this->SetEndTime();
-	if (GetMilliSeconds() > milliSeconds)
+	if (milliSeconds <= 0)
 	{
-		ret = true;
+		return true;
 	}
 
-	return ret;
+	this->SetEndTime();
+	return GetMilliSeconds() > (unsigned int)milliSeconds;
 };
