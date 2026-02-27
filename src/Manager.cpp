@@ -11,7 +11,12 @@
 #include "./db/MemDb.h"
 #include "./util/Util.h"
 
-Manager::Manager() {
+Manager::Manager()
+    : m_memDbInited(false),
+      m_deviceInited(false),
+      m_ioStarted(false),
+      m_netStarted(false),
+      m_ctrlStarted(false) {
     // TODO 构造函数
 }
 
@@ -29,6 +34,7 @@ int Manager::Init() {
     success = MemDb::Init();
     if (!success) {
         zlog_error(Util::m_zlog, "初始化实时数据库失败");
+        this->Uninit();
         return ErrorInfo::ERR_OPENED;
     }
     m_memDbInited = true;
@@ -39,10 +45,12 @@ int Manager::Init() {
     Device *dev = Device::GetInstance();
     if (NULL == dev) {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
+        this->Uninit();
         return ErrorInfo::ERR_NULL;
     }
     if (!dev->Init()) {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
+        this->Uninit();
         return ErrorInfo::ERR_FAILED;
     }
     m_deviceInited = true;
@@ -53,6 +61,7 @@ int Manager::Init() {
     ret = m_io.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动IO通讯失败");
+        this->Uninit();
         return ErrorInfo::ERR_FAILED;
     }
     m_ioStarted = true;
@@ -64,6 +73,7 @@ int Manager::Init() {
     ret = m_net.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动站内通讯失败");
+        this->Uninit();
         return ErrorInfo::ERR_FAILED;
     }
     m_netStarted = true;
@@ -76,6 +86,7 @@ int Manager::Init() {
     ret = m_ctrl.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动控制策略失败");
+        this->Uninit();
         return ErrorInfo::ERR_FAILED;
     }
     m_ctrlStarted = true;

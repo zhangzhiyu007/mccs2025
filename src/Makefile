@@ -40,6 +40,7 @@ endif
 
 INC = -I $(API_DIR)/inc/
 CFLAGS = -Wall -fexceptions
+CXXSTD ?= -std=gnu++98
 RESINC =
 LIB = -lpthread -ldl -lrt -L $(API_DIR)/lib/ $(API_LIBS)
 LDFLAGS =
@@ -79,7 +80,7 @@ out_release: $(OBJ_RELEASE)
 	$(LD) $(LIBDIR_RELEASE) -o $(OUT_RELEASE) $^  $(LDFLAGS_RELEASE) $(LIB_RELEASE)
 
 ${OBJDIR_RELEASE}/%.o: %.cpp
-	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c $< -o $@
+	$(CXX) $(CXXSTD) $(CFLAGS_RELEASE) $(INC_RELEASE) -c $< -o $@
 ${OBJDIR_RELEASE}/%.o: %.c
 	$(CC) $(CFLAGS_RELEASE) $(INC_RELEASE) -c $< -o $@
 

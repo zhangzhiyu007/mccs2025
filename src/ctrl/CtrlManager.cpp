@@ -19,6 +19,11 @@ CtrlManager::~CtrlManager() {
     // TODO 析构函数
 }
 
-int CtrlManager::Init() {}
+int CtrlManager::Init() {
+    zlog_info(Util::m_zlog, "初始化控制策略");
+    return ErrorInfo::ERR_OK;
+}
 
-void CtrlManager::Uninit() {}
+void CtrlManager::Uninit() {
+    zlog_info(Util::m_zlog, "关闭控制策略");
+}
