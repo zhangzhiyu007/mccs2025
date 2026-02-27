@@ -75,6 +75,9 @@ void Top::Run()
 		//第一次读取CPU数据
 		if (NULL == fgets(buf, sizeof(buf), fp))
 		{
+			clearerr(fp);
+			rewind(fp);
+			sleep(1);
 			continue;
 		}
 		sscanf(buf, "%s%ld%ld%ld%ld%ld%ld%ld", cpu, &user, &nice, &sys, &idle,
@@ -100,6 +103,9 @@ void Top::Run()
 
 		if (NULL == fgets(buf, sizeof(buf), fp))
 		{
+			clearerr(fp);
+			rewind(fp);
+			sleep(1);
 			continue;
 		}
 		sscanf(buf, "%s%ld%ld%ld%ld%ld%ld%ld", cpu, &user, &nice, &sys, &idle,
