@@ -213,7 +213,7 @@ int UploadServer::RecvInfo(UdpNode* udp)
 
 	//2.校验原设备地址和数据编号
 	success = false;
-	zlog_debug(Util::m_zlog,"slaveConfig:%d",slaveConfigs->size());
+	zlog_debug(Util::m_zlog,"slaveConfig:%d", (int)slaveConfigs->size());
 	for (iter = slaveConfigs->begin(); iter != slaveConfigs->end(); iter++)
 	{
 		slaveConfig = reinterpret_cast<SlaveConfig*> (*iter);

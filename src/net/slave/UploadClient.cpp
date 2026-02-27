@@ -231,7 +231,7 @@ int UploadClient::SendRealData()
 #endif
 			}
 			//发送数据
-			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d",data.size());
+			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
 			if (data.size() >= 0)
 			{
 				this->SendRealData(data);
@@ -262,7 +262,7 @@ int UploadClient::SendRealData()
 #endif
 			}
 
-			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d",data.size());
+			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
 			if (data.size() >= 0)
 			{
 				this->SendRealData(data);
@@ -321,7 +321,7 @@ int UploadClient::SendRealData()
 #endif
 			}
 			//发送数据
-			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d",data.size());
+			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
 			if (data.size() >= 0)
 			{
 				this->SendRealData(data);
@@ -352,7 +352,7 @@ int UploadClient::SendRealData()
 #endif
 			}
 
-			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d",data.size());
+			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
 			if (data.size() >= 0)
 			{
 				this->SendRealData(data);
