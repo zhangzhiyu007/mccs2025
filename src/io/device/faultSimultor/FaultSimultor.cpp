@@ -137,6 +137,7 @@ int FaultSimultor::DCXG500Preset(Device::SlaveDev* dev){
 	DCXG500FaultSimulator DCXG;
 	DCXG.SetTcp(this->m_tcpClient);
 	ret = DCXG.Preset(dev);
+	return ret;
 }
 
 

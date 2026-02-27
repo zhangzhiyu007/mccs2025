@@ -21,7 +21,10 @@ HisDbSave::HisDbSave()
 	m_level2Save = 7;//二级数据保存时间，单位天
 	m_level3Cycle = 300;//三级数据保存周期，单位s
 	m_level3Save = 7;//三级数据保存时间，单位天
-	memset(m_hisDev, '\0', sizeof(HisDev) * ARRAY_LENGTH_128);
+	for (int i = 0; i < ARRAY_LENGTH_128; ++i)
+	{
+		m_hisDev[i] = HisDev();
+	}
 
 	m_hisDevNum = 15;//目前设备类型15种
 	m_hisDev[0].dev = "env";

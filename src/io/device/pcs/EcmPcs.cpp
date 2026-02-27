@@ -105,7 +105,7 @@ int EcmPcs::EcmPcskaifangRead(Device::SlaveDev *dev)
 	}
 
 	//判断串口是否打开
-	if (!m_tcpClient->IsOpened()) {
+	if (NULL == m_tcpClient || !m_tcpClient->IsOpened()) {
 		return ErrorInfo::ERR_OPENED;
 	}
 
@@ -412,6 +412,7 @@ int EcmPcs::EcmPcskaifangRead(Device::SlaveDev *dev)
 
 
 	MemDb::SetRealData(regStart + 0, comm, false);
+	return ret;
 }
 
 
@@ -419,8 +420,6 @@ int EcmPcs::EcmPcskaifangPreset(Device::SlaveDev *dev)
 {
 	int ret           = ErrorInfo::ERR_OK;
 	bool comm         = false;
-	int addr          = atoi(dev->slaveAddr.c_str());
-	int regStart      = dev->regStart;
 	int start         = 0x0000;
 	int length        = 0;
 	int data          = 0;
@@ -435,9 +434,12 @@ int EcmPcs::EcmPcskaifangPreset(Device::SlaveDev *dev)
 	}
 
 	//判断串口是否打开
-	if (!m_tcpClient->IsOpened()) {
+	if (NULL == m_tcpClient || !m_tcpClient->IsOpened()) {
 		return ErrorInfo::ERR_OPENED;
 	}
+
+	int addr          = atoi(dev->slaveAddr.c_str());
+	int regStart      = dev->regStart;
 
 	ModbusTcpClient client;
 	client.SetTcpClient(m_tcpClient);
@@ -598,6 +600,7 @@ int EcmPcs::EcmPcskaifangPreset(Device::SlaveDev *dev)
 
 		 }
 
+	return ret;
 }
 
 
@@ -626,7 +629,7 @@ int EcmPcs::EcmPcsRead(Device::SlaveDev* dev)
 	}
 
 	//判断串口是否打开
-	if (!m_tcpClient->IsOpened())
+	if (NULL == m_tcpClient || !m_tcpClient->IsOpened())
 	{
 		return ErrorInfo::ERR_OPENED;
 	}
@@ -1002,7 +1005,7 @@ int EcmPcs::EcmPcsPreset(Device::SlaveDev* dev)
 	array.clear();
 
 	//判断串口是否打开
-	if (!m_tcpClient->IsOpened())
+	if (NULL == m_tcpClient || !m_tcpClient->IsOpened())
 	{
 		return ErrorInfo::ERR_OPENED;
 	}

@@ -109,9 +109,14 @@ bool Can::Open()
 	snprintf(up, ARRAY_LENGTH_128, "/sbin/ifconfig can%d up", this->m_port);
 	snprintf(canName, ARRAY_LENGTH_32, "can%d", this->m_port);
 
-	system(down);
-	system(device);
-	system(up);
+	int retDown = system(down);
+	int retCfg = system(device);
+	int retUp = system(up);
+	if ((retDown != 0) || (retCfg != 0) || (retUp != 0))
+	{
+		zlog_warn(Util::m_zlog,"can%d 配置命令执行异常: down=%d cfg=%d up=%d",
+				m_port, retDown, retCfg, retUp);
+	}
 
 	//2.创建套接字描述符
 	m_handle = socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -135,7 +140,7 @@ bool Can::Open()
 
 	addr.can_family = AF_CAN;
 	memset(&ifr.ifr_name, 0, sizeof(ifr.ifr_name));
-	strncpy(ifr.ifr_name, canName, bytes);//拷贝设备名
+	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", canName);//拷贝设备名
 
 	if (ioctl(m_handle, SIOCGIFINDEX, &ifr) < 0)//把接口的索引存入ifr_ifrindex
 	{
@@ -294,7 +299,7 @@ int Can::Write(FrameInfo& dataWrite)
 //			dataWrite.data[4],dataWrite.data[5],
 //			dataWrite.data[6],dataWrite.data[7]);
 	zlog_info(Util::m_zlog,"handle=%ld,ID=%08X,字节长度=%d, 向CAN口写入数据",
-			m_handle,dataWrite.id,dataWrite.data.size());
+			m_handle,dataWrite.id,(int)dataWrite.data.size());
 
 	int len = dataWrite.data.size();
 	unsigned int bytes;

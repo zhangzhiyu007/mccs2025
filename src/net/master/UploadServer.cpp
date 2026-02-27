@@ -176,7 +176,6 @@ int UploadServer::RecvInfo(UdpNode* udp)
 	int start = 0;
 	int tmp = 0;
 	float fTmp=0.0;
-	RealData realData;
 
 	//没有打开
 	if ((NULL == udp) || (!udp->IsOpened()))
@@ -213,7 +212,7 @@ int UploadServer::RecvInfo(UdpNode* udp)
 
 	//2.校验原设备地址和数据编号
 	success = false;
-	zlog_debug(Util::m_zlog,"slaveConfig:%d",slaveConfigs->size());
+	zlog_debug(Util::m_zlog,"slaveConfig:%d", (int)slaveConfigs->size());
 	for (iter = slaveConfigs->begin(); iter != slaveConfigs->end(); iter++)
 	{
 		slaveConfig = reinterpret_cast<SlaveConfig*> (*iter);
@@ -238,7 +237,7 @@ int UploadServer::RecvInfo(UdpNode* udp)
 	if (Iec103::ALONE_ADDR == data.continuous)//每个数据单独地址
 	{
 		//校验数据长度,每个数据占7个字节
-		if ((data.dataLength * 7) > data.data.size())
+		if ((data.dataLength * 7) > (int)data.data.size())
 		{
 			return false;
 		}
@@ -266,7 +265,7 @@ int UploadServer::RecvInfo(UdpNode* udp)
 	else//连续地址
 	{
 		//校验数据长度,每个数据占5个字节
-		if ((data.dataLength * 5) > data.data.size())
+		if ((data.dataLength * 5) > (int)data.data.size())
 		{
 			return false;
 		}

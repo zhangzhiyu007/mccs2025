@@ -26,7 +26,7 @@ int ZJNCLoad::Read(Device::SlaveDev* dev) {
 		zlog_warn(Util::m_zlog, "从设备为NULL");
 		return ErrorInfo::ERR_NULL;
 	}
-	if(!m_tcpClient->IsOpened()){
+	if(NULL == m_tcpClient || !m_tcpClient->IsOpened()){
 		zlog_warn(Util::m_zlog, "tcp 未打开");
 		return ErrorInfo::ERR_OPENED;
 	}
@@ -49,14 +49,11 @@ int ZJNCLoad::DCLoad_a_Read(Device::SlaveDev* dev) {
 	int ret = ErrorInfo::ERR_OK;
 
 	int start = 0;
-	int regStart = dev->regStart;
 
 	bool comm = false;
 
 	UshortArray values;
 	values.clear();
-
-	int addr = atoi(dev->slaveAddr.c_str());
 
 	int i_data = 0;
 	float f_data =0.0f;
@@ -73,10 +70,13 @@ int ZJNCLoad::DCLoad_a_Read(Device::SlaveDev* dev) {
 		zlog_warn(Util::m_zlog, "从设备为NULL");
 		return ErrorInfo::ERR_NULL;
 	}
-	if(!m_tcpClient->IsOpened()){
+	if(NULL == m_tcpClient || !m_tcpClient->IsOpened()){
 		zlog_warn(Util::m_zlog, "tcp 未打开");
 		return ErrorInfo::ERR_OPENED;
 	}
+
+	int regStart = dev->regStart;
+	int addr = atoi(dev->slaveAddr.c_str());
 
 	ModbusRtuMaster rtu;
 	rtu.SetIsTcp(true);
@@ -150,20 +150,18 @@ int ZJNCLoad::DCLoad_a_Read(Device::SlaveDev* dev) {
 		zlog_warn(Util::m_zlog, "%s 设备 读取数据失败", dev->name.c_str());
 	}
 
+	return ret;
 }
 
 int ZJNCLoad::DCLoad_b_Read(Device::SlaveDev* dev) {
 	int ret = ErrorInfo::ERR_OK;
 
 	int start = 0;
-	int regStart = dev->regStart;
 
 	bool comm = false;
 
 	UshortArray values;
 	values.clear();
-
-	int addr = atoi(dev->slaveAddr.c_str());
 
 	int i_data = 0;
 	float f_data =0.0f;
@@ -177,10 +175,13 @@ int ZJNCLoad::DCLoad_b_Read(Device::SlaveDev* dev) {
 		zlog_warn(Util::m_zlog, "从设备为NULL");
 		return ErrorInfo::ERR_NULL;
 	}
-	if(!m_tcpClient->IsOpened()){
+	if(NULL == m_tcpClient || !m_tcpClient->IsOpened()){
 		zlog_warn(Util::m_zlog, "tcp 未打开");
 		return ErrorInfo::ERR_OPENED;
 	}
+
+	int regStart = dev->regStart;
+	int addr = atoi(dev->slaveAddr.c_str());
 
 	ModbusRtuMaster rtu;
 	rtu.SetIsTcp(true);
@@ -279,7 +280,7 @@ int ZJNCLoad::DCLoad_b_Read(Device::SlaveDev* dev) {
 		zlog_warn(Util::m_zlog, "%s 设备 读取数据失败", dev->name.c_str());
 	}
 
-
+	return ret;
 }
 
 
@@ -289,7 +290,7 @@ int ZJNCLoad::Preset(Device::SlaveDev *dev) {
 		zlog_warn(Util::m_zlog, "从设备为NULL");
 		return ErrorInfo::ERR_NULL;
 	}
-	if(!m_tcpClient->IsOpened()){
+	if(NULL == m_tcpClient || !m_tcpClient->IsOpened()){
 		return ErrorInfo::ERR_OPENED;
 	}
 
@@ -328,7 +329,7 @@ int ZJNCLoad::DCLoad_a_Preset(Device::SlaveDev *dev) {
 		zlog_warn(Util::m_zlog, "从设备为NULL");
 		return ErrorInfo::ERR_NULL;
 	}
-	if(!m_tcpClient->IsOpened()){
+	if(NULL == m_tcpClient || !m_tcpClient->IsOpened()){
 		return ErrorInfo::ERR_OPENED;
 	}
 
@@ -452,7 +453,7 @@ int ZJNCLoad::DCLoad_b_Preset(Device::SlaveDev *dev) {
 		zlog_warn(Util::m_zlog, "从设备为NULL");
 		return ErrorInfo::ERR_NULL;
 	}
-	if(!m_tcpClient->IsOpened()){
+	if(NULL == m_tcpClient || !m_tcpClient->IsOpened()){
 		return ErrorInfo::ERR_OPENED;
 	}
 

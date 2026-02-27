@@ -397,7 +397,7 @@ int ModbusRtuSlave::UnpackModbus(ModbusRtu& modbus, String& data)
  */
 int ModbusRtuSlave::PackModbus(String& data, ModbusRtu& modbus)
 {
-	zlog_info(Util::m_zlog,"地址=%d,命令=%d,起始地址=%d,长度=%d,data=%d",modbus.addr,modbus.order,modbus.regStart,modbus.regLength,modbus.data.size());
+	zlog_info(Util::m_zlog,"地址=%d,命令=%d,起始地址=%d,长度=%d,data=%d",modbus.addr,modbus.order,modbus.regStart,modbus.regLength,(int)modbus.data.size());
 	int function = modbus.order;//功能码
 	RealData tmpData;//保存临时读取的数据
 	int i;
@@ -638,7 +638,7 @@ int ModbusRtuSlave::Check(String& data)
 
     if (data.size() >= 8)
     {
-    	zlog_info(Util::m_zlog, "data.size() = %d ：",data.size());
+    	zlog_info(Util::m_zlog, "data.size() = %d ：", (int)data.size());
 
 		int slaveAddr = data[0];//设备地址
 		int function = data[1];//功能码
