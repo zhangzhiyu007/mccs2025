@@ -185,7 +185,7 @@ void UploadClient::Run()
 	this->CloseUdp();
 	//MemDb::Uninit();
 
-	m_state == Thread::STOPPED;
+	m_state = Thread::STOPPED;
 	zlog_warn(Util::m_zlog, "站内设备从站UDP监视线程退出");
 }
 
@@ -197,9 +197,11 @@ int UploadClient::SendRealData()
 	PtrArray data;
 	int start = 0;
 	int len = 0;
-	unsigned int j = 0;
+	size_t j = 0;
 	int dataLen = ARRAY_LENGTH_128 - 1;
+#if UNUSED
 	RealData* realDataTmp = NULL;
+#endif
 
 	//1、集中控制器上传
 	//1）判断是否是集中控制器
@@ -218,7 +220,6 @@ int UploadClient::SendRealData()
 			GetRealData(data, i, dataLen);
 			for (j = 0; j < data.size(); j++)
 			{
-				realDataTmp = (RealData*) data[j];
 #if UNUSED
 				if (realDataTmp->pv.type == RealData::DB)
 				{
@@ -232,7 +233,7 @@ int UploadClient::SendRealData()
 			}
 			//发送数据
 			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
-			if (data.size() >= 0)
+			if (!data.empty())
 			{
 				this->SendRealData(data);
 				this->ReleaseRealData(data);
@@ -247,9 +248,8 @@ int UploadClient::SendRealData()
 		{
 			zlog_debug(Util::m_zlog,"剩余数据");
 			GetRealData(data, i, lenTmp);
-			for (j = 0; j < (int) data.size(); j++)
+			for (j = 0; j < data.size(); j++)
 			{
-				realDataTmp = (RealData*) data[j];
 #if UNUSED
 				if (realDataTmp->pv.type == RealData::DB)
 				{
@@ -263,7 +263,7 @@ int UploadClient::SendRealData()
 			}
 
 			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
-			if (data.size() >= 0)
+			if (!data.empty())
 			{
 				this->SendRealData(data);
 				this->ReleaseRealData(data);
@@ -308,7 +308,6 @@ int UploadClient::SendRealData()
 			GetRealData(data, i, dataLen);
 			for (j = 0; j < data.size(); j++)
 			{
-				realDataTmp = (RealData*) data[j];
 #if UNUSED
 				if (realDataTmp->pv.type == RealData::DB)
 				{
@@ -322,7 +321,7 @@ int UploadClient::SendRealData()
 			}
 			//发送数据
 			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
-			if (data.size() >= 0)
+			if (!data.empty())
 			{
 				this->SendRealData(data);
 				this->ReleaseRealData(data);
@@ -337,9 +336,8 @@ int UploadClient::SendRealData()
 		{
 			zlog_debug(Util::m_zlog,"剩余数据");
 			GetRealData(data, i, lenTmp);
-			for (j = 0; j < (int) data.size(); j++)
+			for (j = 0; j < data.size(); j++)
 			{
-				realDataTmp = (RealData*) data[j];
 #if UNUSED
 				if (realDataTmp->pv.type == RealData::DB)
 				{
@@ -353,7 +351,7 @@ int UploadClient::SendRealData()
 			}
 
 			zlog_debug(Util::m_zlog,"获取实时数据,数量=%d", (int)data.size());
-			if (data.size() >= 0)
+			if (!data.empty())
 			{
 				this->SendRealData(data);
 				this->ReleaseRealData(data);
@@ -429,7 +427,7 @@ void UploadClient::ReleaseRealData(PtrArray& array)
 
 int UploadClient::SendRealData(PtrArray& data)
 {
-	if (data.size() <= 0)
+	if (data.empty())
 	{
 		return ErrorInfo::ERR_NO_DATA;
 	}
@@ -504,7 +502,6 @@ int UploadClient::SendRealData(PtrArray& data)
 	sendData = iec103.Pack(&head, &packetData);
 
 	//发送数据
-	int ret = 0;
 	ControllerConfig* config = m_slaveManager->GetControllerConfig();
 	Address addrA(config->ipBroadcastA, m_slaveManager->GetMasterUploadPort());//从站UDP上传端口
 	Address addrB(config->ipBroadcastB, m_slaveManager->GetMasterUploadPort());
@@ -513,13 +510,13 @@ int UploadClient::SendRealData(PtrArray& data)
 	{
 		if (Iec103::NORMAL == m_networkA)
 		{
-			ret = m_udp->Sendto(addrA, sendData);
+			m_udp->Sendto(addrA, sendData);
 		}
 
 		if (Iec103::NORMAL == m_networkB)
 		{
 			zlog_debug(Util::m_zlog,"B网上传数据");
-			ret = m_udp->Sendto(addrB, sendData);
+			m_udp->Sendto(addrB, sendData);
 		}
 	}
 

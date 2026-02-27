@@ -16,6 +16,8 @@ SocketThreads::SocketThreads()
 	m_serverManager = NULL;
 	m_socketTypeDevs.clear();
 	m_socketThreads.clear();
+	m_socketCtrlThreads.clear();
+	m_tcpClients.clear();
 }
 
 SocketThreads::~SocketThreads()
@@ -23,7 +25,7 @@ SocketThreads::~SocketThreads()
 	// TODO Auto-generated destructor stub
 	m_serverManager = NULL;
 
-	if (!m_socketThreads.empty())
+	if (!m_socketThreads.empty() || !m_socketCtrlThreads.empty() || !m_tcpClients.empty() || !m_socketTypeDevs.empty())
 	{
 		CloseThreads();
 	}
@@ -44,15 +46,36 @@ int SocketThreads::OpenThreads()
 {
 	//得到实例并初始化
 	Device* device = Device::GetInstance();
+	if (NULL == device)
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: Device实例为空");
+		return ErrorInfo::ERR_NULL;
+	}
 
 	//获取网口从设备信息指针
 	PtrArray* slaveArray = device->GetSlaveDevArray();
+	if (NULL == slaveArray)
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: 从设备数组为空");
+		return ErrorInfo::ERR_NULL;
+	}
 
 	//读取通讯类型指针
 	PtrArray* constCommTypeArray = device->GetConstCommTypeArray();
+	if ((NULL == constCommTypeArray) || (constCommTypeArray->size() <= 1))
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: 通讯类型配置无效");
+		return ErrorInfo::ERR_FAILED;
+	}
+
 	//以太网类型
 	Device::ConstCommType* commType =
 			(Device::ConstCommType*) constCommTypeArray->at(1);
+	if (NULL == commType)
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: 以太网通讯类型为空");
+		return ErrorInfo::ERR_NULL;
+	}
 
 	//存取从设备信息数组
 	Device::SlaveDev* slaveDev = NULL;
@@ -125,6 +148,7 @@ int SocketThreads::OpenThreads()
 
 		//创建线程
 		client = new TcpClient();
+		m_tcpClients.push_back(client);
 
 		zlog_warn(Util::m_zlog, "创建以太网通讯线程,通信参数:IP=%s,port=%d",
 				socketAddress->ip.c_str(), socketAddress->port);
@@ -197,6 +221,20 @@ int SocketThreads::CloseThreads()
 	}
 	m_socketThreads.clear();
 
+	//关闭TCP客户端
+	TcpClient* client = NULL;
+	for (i = 0; i < m_tcpClients.size(); i++)
+	{
+		client = (TcpClient*) m_tcpClients[i];
+		if (NULL != client)
+		{
+			client->Close();
+			delete client;
+			client = NULL;
+		}
+	}
+	m_tcpClients.clear();
+
 	//关闭以太网设备
 	SocketAddress* socketAddress = NULL;
 	for (i = 0; i < m_socketTypeDevs.size(); i++)
@@ -208,6 +246,7 @@ int SocketThreads::CloseThreads()
 			socketAddress = NULL;
 		}
 	}
+	m_socketTypeDevs.clear();
 
 	return ErrorInfo::ERR_OK;
 }

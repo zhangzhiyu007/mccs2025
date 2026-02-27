@@ -339,7 +339,7 @@ int QunLingDcLoad::Bdct5000Preset(Device::SlaveDev* dev)
 
 		ret = m_com->TxRxMsg(reply, query, 14);
 
-		for (int i = 0; i < query.size(); i++)
+		for (size_t i = 0; i < query.size(); i++)
 		{
 			printf("%02X ", query[i]);
 		}
@@ -458,7 +458,7 @@ int QunLingDcLoad::Bdct5000Preset(Device::SlaveDev* dev)
 			return ret;
 		}
 
-		for (int i = 0; i < query.size(); i++)
+		for (size_t i = 0; i < query.size(); i++)
 		{
 			printf("%02X ", query[i]);
 		}

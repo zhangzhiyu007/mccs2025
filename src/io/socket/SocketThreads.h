@@ -64,6 +64,7 @@ private:
 	PtrArray m_socketThreads;//保存线程类指针
 	PtrArray m_socketCtrlThreads;//保存控制线程类指针
 	PtrArray m_socketTypeDevs;//以太网设备，查找相同IP和端口设备
+	PtrArray m_tcpClients;//保存TcpClient指针，统一释放
 };
 
 #endif /* SOCKETTHREADS_H_ */

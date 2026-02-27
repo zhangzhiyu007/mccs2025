@@ -50,8 +50,6 @@ void MemDb::Uninit() {
 
 bool MemDb::OpenMem() {
     zlog_info(Util::m_zlog, "内存共享数据库:开启内存共享");
-    bool ret = false;
-
     // 采用内存共享时采用
     //	RealData* tmp = NULL;
     //	int shmid = -1;

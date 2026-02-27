@@ -14,7 +14,7 @@
 #include "libs_emfuture_odm.h"
 
 ControlServer::ControlServer(Socket* sock, void* param) :
-	TcpService(sock), m_slaveManager((SlaveManager*) param), m_timeout(100000)
+	TcpService(sock), m_timeout(100000), m_slaveManager((SlaveManager*) param)
 {
 	// TODO 构造函数
 	pthread_mutex_init(&m_mutex, NULL);
@@ -107,7 +107,7 @@ void ControlServer::Run()
 		m_masterConfig->dataNumber=0;//计数清零
 	}
 
-	m_state == Thread::STOPPED;
+	m_state = Thread::STOPPED;
 	zlog_warn(Util::m_zlog, "退出控制线程");
 	return;
 }
@@ -324,7 +324,7 @@ bool ControlServer::SaveCtrlData(Iec103::PacketData& data)
 	{
 		zlog_debug(Util::m_zlog,"每个数据单独地址");
 		//校验数据长度,每个数据占7个字节
-		if ((data.dataLength * 7) > data.data.size())
+		if ((data.dataLength * 7) > (int)data.data.size())
 		{
 			zlog_debug(Util::m_zlog, "校验数据长度不正确:dataLength=%d>size=%d", data.dataLength * 7, (int)data.data.size());
 			success = false;
@@ -362,7 +362,7 @@ bool ControlServer::SaveCtrlData(Iec103::PacketData& data)
 	{
 		zlog_debug(Util::m_zlog,"连续地址");
 		//校验数据长度,每个数据占5个字节
-		if ((data.dataLength * 5) > data.data.size())
+		if ((data.dataLength * 5) > (int)data.data.size())
 		{
 			zlog_warn(Util::m_zlog, "校验数据长度不正确");
 			success = false;
