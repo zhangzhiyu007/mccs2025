@@ -29,6 +29,11 @@ int Manager::Init() {
     int ret      = ErrorInfo::ERR_OK;
     bool success = false;
 
+    auto rollbackAndReturn = [this](int err) {
+        this->Uninit();
+        return err;
+    };
+
     // 1、实时数据库初始化
     zlog_error(Util::m_zlog, "初始化实时数据库");
     success = MemDb::Init();
