@@ -28,6 +28,29 @@
 
 // #include "../device/chrpile/ChargePile.h"
 
+
+static bool IsThreadStopping(Thread* thread)
+{
+    return (thread->GetState() == Thread::STOPPING) ||
+           (thread->GetState() == Thread::STOPPED);
+}
+
+static bool InterruptibleSleepMs(Thread* thread, int totalMs)
+{
+    int left = totalMs;
+    while (left > 0)
+    {
+        if (IsThreadStopping(thread))
+        {
+            return false;
+        }
+        const int chunk = (left > 100) ? 100 : left;
+        msleep(chunk);
+        left -= chunk;
+    }
+    return !IsThreadStopping(thread);
+}
+
 SocketThread::SocketThread() {
     // TODO Auto-generated constructor stub
     m_socketThreads = NULL;
@@ -64,11 +87,15 @@ void SocketThread::Run() {
     zlog_warn(Util::m_zlog, "查找指定以太网从设备");
     FindSocketSlaveDevs();
     zlog_warn(Util::m_zlog, "查找指定以太网从设备,数量=%d",
-              m_socketSlaveDevs.size());
+              (int)m_socketSlaveDevs.size());
 
     // 设备IP和端口地址
     Address addr(m_socketAddress->ip, m_socketAddress->port);
     TcpClient *client = m_tcpClient;
+    if (NULL == client) {
+        zlog_error(Util::m_zlog, "TcpClient为空, socket线程退出");
+        return;
+    }
 
     // 存取从设备信息数组
     Device::SlaveDev *slaveDev = NULL;
@@ -166,7 +193,7 @@ void SocketThread::Run() {
     zlog_debug(Util::m_zlog, "以太网从设备采集主程序执行");
     while (true) {
         // 判断线程是否结束
-        if (m_state == Thread::STOPPING) {
+        if (IsThreadStopping(this)) {
             zlog_warn(Util::m_zlog, "socket线程结束");
             break;
         }
@@ -191,10 +218,9 @@ void SocketThread::Run() {
                 openFailed = 0;
             } else {
                 openFailed++;
-                if (openFailed > 3) {
-                    sleep(60);
-                } else {
-                    sleep(1);
+                int backoffSeconds = (openFailed > 3) ? 60 : 1;
+                if (!InterruptibleSleepMs(this, backoffSeconds * 1000)) {
+                    break;
                 }
             }
 
@@ -274,9 +300,13 @@ void SocketThread::Run() {
                 break;
             };
 
-            msleep(400);
+            if (!InterruptibleSleepMs(this, 400)) {
+                break;
+            }
         }
-        msleep(300);
+        if (!InterruptibleSleepMs(this, 300)) {
+            break;
+        }
     }
 }
 

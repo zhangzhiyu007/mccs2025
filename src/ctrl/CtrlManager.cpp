@@ -19,6 +19,6 @@ CtrlManager::~CtrlManager() {
     // TODO 析构函数
 }
 
-int CtrlManager::Init() {}
+int CtrlManager::Init() { return ErrorInfo::ERR_OK; }
 
 void CtrlManager::Uninit() {}
