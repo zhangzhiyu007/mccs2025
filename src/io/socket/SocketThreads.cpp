@@ -217,6 +217,7 @@ int SocketThreads::CloseThreads()
 			(int)m_tcpClients.size(), (int)m_socketTypeDevs.size());
 
 	UINT i;
+	int ret = ErrorInfo::ERR_OK;
 
 	// 先关闭TCP客户端连接，帮助阻塞IO快速返回（对象延后删除）
 	TcpClient* client = NULL;
@@ -229,45 +230,78 @@ int SocketThreads::CloseThreads()
 		}
 	}
 
-	//关闭控制线程
+	// 关闭控制线程，超时未退出的线程保留对象，避免悬挂访问
+	PtrArray aliveCtrlThreads;
 	SocketCtrlThread* socketCtrlThread = NULL;
 	for (i = 0; i < m_socketCtrlThreads.size(); i++)
 	{
 		socketCtrlThread = (SocketCtrlThread*) m_socketCtrlThreads[i];
-
-		if (NULL != socketCtrlThread)
+		if (NULL == socketCtrlThread)
 		{
-			if (socketCtrlThread->IsAlive())
-			{
-				zlog_warn(Util::m_zlog,"关闭socket控制线程");
-				socketCtrlThread->Stop();
-			}
-			delete socketCtrlThread;
-			socketCtrlThread = NULL;
+			continue;
 		}
-	}
-	m_socketCtrlThreads.clear();
 
-	//关闭采集线程
+		if (socketCtrlThread->IsAlive())
+		{
+			zlog_warn(Util::m_zlog,"关闭socket控制线程");
+			socketCtrlThread->Stop();
+		}
+
+		if (socketCtrlThread->IsAlive())
+		{
+			zlog_error(Util::m_zlog, "socket控制线程未能在关闭阶段退出，保留对象: idx=%u", i);
+			aliveCtrlThreads.push_back(socketCtrlThread);
+			ret = ErrorInfo::ERR_FAILED;
+			continue;
+		}
+
+		delete socketCtrlThread;
+		socketCtrlThread = NULL;
+	}
+	m_socketCtrlThreads.swap(aliveCtrlThreads);
+
+	// 关闭采集线程，超时未退出的线程保留对象，避免悬挂访问
+	PtrArray aliveSocketThreads;
 	SocketThread* socketThread = NULL;
 	for (i = 0; i < m_socketThreads.size(); i++)
 	{
 		socketThread = (SocketThread*) m_socketThreads[i];
-
-		if (NULL != socketThread)
+		if (NULL == socketThread)
 		{
-			if (socketThread->IsAlive())
-			{
-				zlog_warn(Util::m_zlog,"关闭socket线程");
-				socketThread->Stop();
-			}
-			delete socketThread;
-			socketThread = NULL;
+			continue;
 		}
-	}
-	m_socketThreads.clear();
 
-	//删除TCP客户端对象
+		if (socketThread->IsAlive())
+		{
+			zlog_warn(Util::m_zlog,"关闭socket线程");
+			socketThread->Stop();
+		}
+
+		if (socketThread->IsAlive())
+		{
+			zlog_error(Util::m_zlog, "socket采集线程未能在关闭阶段退出，保留对象: idx=%u", i);
+			aliveSocketThreads.push_back(socketThread);
+			ret = ErrorInfo::ERR_FAILED;
+			continue;
+		}
+
+		delete socketThread;
+		socketThread = NULL;
+	}
+	m_socketThreads.swap(aliveSocketThreads);
+
+	// 仍有线程活跃时，必须保留client和地址对象，避免线程访问已释放内存
+	if (!m_socketCtrlThreads.empty() || !m_socketThreads.empty())
+	{
+		zlog_error(Util::m_zlog,
+				"关闭socket线程未完全成功: ctrl_alive=%d, io_alive=%d，保留client/addr对象",
+				(int)m_socketCtrlThreads.size(), (int)m_socketThreads.size());
+		const time_t end = time(NULL);
+		zlog_info(Util::m_zlog, "关闭socket线程结束(部分保留),耗时=%d s", (int)(end - begin));
+		return ErrorInfo::ERR_FAILED;
+	}
+
+	// 所有线程已退出后再释放TCP客户端对象
 	for (i = 0; i < m_tcpClients.size(); i++)
 	{
 		client = (TcpClient*) m_tcpClients[i];
@@ -279,7 +313,7 @@ int SocketThreads::CloseThreads()
 	}
 	m_tcpClients.clear();
 
-	//关闭以太网设备
+	// 释放以太网设备地址对象
 	SocketAddress* socketAddress = NULL;
 	for (i = 0; i < m_socketTypeDevs.size(); i++)
 	{
@@ -294,6 +328,6 @@ int SocketThreads::CloseThreads()
 
 	const time_t end = time(NULL);
 	zlog_info(Util::m_zlog, "关闭socket线程结束,耗时=%d s", (int)(end - begin));
-	return ErrorInfo::ERR_OK;
+	return ret;
 }
 
