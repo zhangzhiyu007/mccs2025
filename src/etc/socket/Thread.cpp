@@ -87,7 +87,8 @@ void Thread::Join()
 		if (ret == ETIMEDOUT)
 		{
 			zlog_error(Util::m_zlog, "线程等待超时(5s): handle=%lu", (unsigned long)m_handle);
-			m_state = RUNNING;
+			// 保持STOPPING，确保工作线程持续看到停止请求并尽快自行退出
+			m_state = STOPPING;
 			return;
 		}
 	}
@@ -102,7 +103,8 @@ void Thread::Join()
 	if (ret != 0)
 	{
 		zlog_error(Util::m_zlog, "线程等待失败: %s", strerror(ret));
-		m_state = RUNNING;
+		// Join失败时也保持STOPPING，避免误报为运行中且撤销停止请求
+		m_state = STOPPING;
 		return;
 	}
 
