@@ -8,13 +8,22 @@
 #include "./Manager.h"
 #include "./db/Device.h"
 #include "./util/Util.h"
+#include <signal.h>
+
+static volatile sig_atomic_t g_stopFlag = 0;
+
+static void HandleStopSignal(int signum) {
+    (void)signum;
+    g_stopFlag = 1;
+}
 
 //主函数
 int main(int argc, char **argv) {
-    bool ret = false;
+    int ret = ErrorInfo::ERR_OK;
+    bool utilInited = false;
     // 1、初始化
-    ret = Util::Init();
-    if (!ret) {
+    utilInited = Util::Init();
+    if (!utilInited) {
         return 0;
     }
     // 记录系统启动动作
@@ -24,7 +33,7 @@ int main(int argc, char **argv) {
     zlog_error(Util::m_zlog, "启动服务器管理接口");
     Manager manager;
     ret = manager.Init();
-    if (!ret) {
+    if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动服务器管理接口失败");
         Util::Uninit();
         return 0;
@@ -36,12 +45,15 @@ int main(int argc, char **argv) {
     WatchDog watchDog;
 #if UNUSED
     Device *dev = Device::GetInstance();
-    ret         = watchDog.Open(60);
+    bool wdOpened = watchDog.Open(60);
     zlog_error(Util::m_zlog, "启动看门狗%s，超时时间=60 s",
-               ret ? "成功" : "失败");
+               wdOpened ? "成功" : "失败");
 #endif
 
-    while (true) {
+    signal(SIGINT, HandleStopSignal);
+    signal(SIGTERM, HandleStopSignal);
+
+    while (!g_stopFlag) {
         //喂狗操作
         watchDog.Feed();
         sleep(1);

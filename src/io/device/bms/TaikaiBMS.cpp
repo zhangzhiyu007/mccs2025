@@ -12,9 +12,6 @@ int TaikaiBMS::Read(Device::SlaveDev *dev) {
     int ret   = ErrorInfo::ERR_OK;
     bool comm = false;
 
-    int regStart = dev->regStart;
-    int addr     = atoi(dev->slaveAddr.c_str());
-
     UshortArray values;
     values.clear();
 
@@ -28,10 +25,13 @@ int TaikaiBMS::Read(Device::SlaveDev *dev) {
         zlog_warn(Util::m_zlog, "从设备为NULL");
         return ErrorInfo::ERR_NULL;
     }
-    if (!m_tcpClient->IsOpened()) {
+    if (NULL == m_tcpClient || !m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "tcp 未打开");
         return ErrorInfo::ERR_OPENED;
     }
+
+    int regStart = dev->regStart;
+    int addr     = atoi(dev->slaveAddr.c_str());
 
     ModbusRtuMaster rtu;
     rtu.SetIsTcp(true);
@@ -86,4 +86,5 @@ int TaikaiBMS::Read(Device::SlaveDev *dev) {
     }
 
     MemDb::SetRealData(regStart + 0, comm, false);
+    return ret;
 }

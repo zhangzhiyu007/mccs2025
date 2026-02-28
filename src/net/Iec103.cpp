@@ -387,7 +387,7 @@ bool Iec103::UnpackAsdu(String& data, PacketFormat& format,
 	//1\校验字符长度,固定格式为5字节
 	if (dataUnpacked.size() < 5)
 	{
-		zlog_warn(Util::m_zlog, "字节长度太短%d",dataUnpacked.size());
+		zlog_warn(Util::m_zlog, "字节长度太短%d", (int)dataUnpacked.size());
 		return false;
 	}
 
@@ -437,7 +437,7 @@ bool Iec103::UnpackAsdu(String& data, PacketFormat& format,
 		int len = dataUnpacked[1] + (dataUnpacked[2] << 8);
 		if (len != (dataUnpacked.size() - 6))
 		{
-			zlog_warn(Util::m_zlog, "变长格式:字节长度不符:len=%d,dataUnpacked.size()=%d",len,dataUnpacked.size());
+			zlog_warn(Util::m_zlog, "变长格式:字节长度不符:len=%d,dataUnpacked.size()=%d", len, (int)dataUnpacked.size());
 			return false;
 		}
 

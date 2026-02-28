@@ -29,7 +29,19 @@ ControlClient::ControlClient() :
 
 ControlClient::~ControlClient()
 {
-	// TODO 析构函数
+	this->CloseTcp();
+
+	if (NULL != m_tcpA)
+	{
+		delete m_tcpA;
+		m_tcpA = NULL;
+	}
+
+	if (NULL != m_tcpB)
+	{
+		delete m_tcpB;
+		m_tcpB = NULL;
+	}
 }
 
 void ControlClient::SetMasterManager(MasterManager* manager)
@@ -354,7 +366,7 @@ int ControlClient::SendCtrlData()
 	int src = 0;
 
 	//为每个寄存器设置单独地址
-	zlog_info(Util::m_zlog,"下发数据大小%d",data.size());
+	zlog_info(Util::m_zlog,"下发数据大小%d", (int)data.size());
 	for (i = 0; i < data.size(); i++)
 	{
 		realData = (RealData*) data[i];

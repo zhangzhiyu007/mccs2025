@@ -21,7 +21,10 @@ HisDbSave::HisDbSave()
 	m_level2Save = 7;//二级数据保存时间，单位天
 	m_level3Cycle = 300;//三级数据保存周期，单位s
 	m_level3Save = 7;//三级数据保存时间，单位天
-	memset(m_hisDev, '\0', sizeof(HisDev) * ARRAY_LENGTH_128);
+	for (int i = 0; i < ARRAY_LENGTH_128; ++i)
+	{
+		m_hisDev[i] = HisDev();
+	}
 
 	m_hisDevNum = 15;//目前设备类型15种
 	m_hisDev[0].dev = "env";
@@ -90,7 +93,7 @@ bool HisDbSave::InitHisConfig()
 	//1、打开数据库
 	if (!db->IsOpen())
 	{
-		if (db->Open())
+		if (!db->Open())
 		{
 			zlog_warn(Util::m_zlog, "配置数据库打开失败");
 			return false;
@@ -440,10 +443,14 @@ HisDbSaveThread::HisDbSaveThread()
 	m_handle = INVALID_HANDLE;
 	//初始化互斥对象
 	pthread_mutex_init(&m_mutex, NULL);
+	//初始化条件变量
+	pthread_cond_init(&m_cond, NULL);
 }
 
 HisDbSaveThread::~HisDbSaveThread()
 {
+	//释放条件变量
+	pthread_cond_destroy(&m_cond);
 	//释放互斥锁
 	pthread_mutex_destroy(&m_mutex);
 }
@@ -461,12 +468,15 @@ bool HisDbSaveThread::Start()
 	//局部变量
 	int ret = 0;
 
+	pthread_mutex_lock(&m_mutex);
 	if (m_running)
 	{
 		//线程已经运行
 		zlog_info(Util::m_zlog, "线程已经运行");
+		pthread_mutex_unlock(&m_mutex);
 		return true;
 	}
+	pthread_mutex_unlock(&m_mutex);
 
 	//1、开启线程
 	ret = pthread_create((pthread_t*) &m_handle, NULL, HisDbSaveThread::Run,
@@ -483,6 +493,7 @@ bool HisDbSaveThread::Start()
 
 	//加锁
 	pthread_mutex_lock(&m_mutex);
+	m_flagExit = false;
 	//给线程唤醒信号
 	pthread_cond_signal(&m_cond);
 	//解锁
@@ -503,15 +514,18 @@ void HisDbSaveThread::Stop()
 	zlog_info(Util::m_zlog, "停止线程");
 
 	//1、判断线程是否正在运行
+	pthread_mutex_lock(&m_mutex);
 	if (!m_running)
 	{
 		//线程已经停止
 		zlog_info(Util::m_zlog, "线程已经停止");
+		pthread_mutex_unlock(&m_mutex);
 		return;
 	}
 
 	//2、停止线程,设置运行标志为停止运行
 	m_flagExit = true;
+	pthread_mutex_unlock(&m_mutex);
 
 	//等待线程结束，该方法为阻塞式，直到线程结束
 	pthread_join(m_handle, NULL);
@@ -528,14 +542,18 @@ void HisDbSaveThread::Stop()
  */
 void HisDbSaveThread::Work()
 {
+	pthread_mutex_lock(&m_mutex);
 	m_flagExit = false;
 	m_running = true;
+	pthread_mutex_unlock(&m_mutex);
 
 	HisDbSave* db = HisDbSave::GetInstance();
 	if(!db->Init())
 	{
+		pthread_mutex_lock(&m_mutex);
 		m_flagExit = false;
 		m_running = false;
+		pthread_mutex_unlock(&m_mutex);
 		return;
 	}
 
@@ -552,7 +570,11 @@ void HisDbSaveThread::Work()
 	while (true)
 	{
 		//1、判断是不是退出线程
-		if (m_flagExit)
+		bool shouldExit = false;
+		pthread_mutex_lock(&m_mutex);
+		shouldExit = m_flagExit;
+		pthread_mutex_unlock(&m_mutex);
+		if (shouldExit)
 		{
 			//退出线程
 			zlog_warn(Util::m_zlog, "线程退出");
@@ -594,8 +616,10 @@ void HisDbSaveThread::Work()
 	//退出线程
 	db->FreeInstanse();
 
+	pthread_mutex_lock(&m_mutex);
 	m_flagExit = false;
 	m_running = false;
+	pthread_mutex_unlock(&m_mutex);
 	return;
 }
 

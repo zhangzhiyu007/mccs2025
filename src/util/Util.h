@@ -368,7 +368,7 @@ public:
 	static bool DelMem(int shmid);
 
 	//初始化互斥
-	static bool InitMutex(pthread_mutex_t* mutex);
+	static bool InitMutex(pthread_mutex_t** mutex);
 	//互斥加锁
 	static void Lock(pthread_mutex_t* mutex);
 	//互斥解锁
