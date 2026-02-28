@@ -87,8 +87,7 @@ void Thread::Join()
 		if (ret == ETIMEDOUT)
 		{
 			zlog_error(Util::m_zlog, "线程等待超时(5s): handle=%lu", (unsigned long)m_handle);
-			// 保持STOPPING，确保工作线程持续看到停止请求并尽快自行退出
-			m_state = STOPPING;
+			m_state = RUNNING;
 			return;
 		}
 	}
@@ -103,8 +102,7 @@ void Thread::Join()
 	if (ret != 0)
 	{
 		zlog_error(Util::m_zlog, "线程等待失败: %s", strerror(ret));
-		// Join失败时也保持STOPPING，避免误报为运行中且撤销停止请求
-		m_state = STOPPING;
+		m_state = RUNNING;
 		return;
 	}
 
@@ -189,14 +187,6 @@ void* Thread::Init(void* arg)
 {
 	Thread* thread = reinterpret_cast<Thread*> (arg);
 	Add(thread);
-	if (thread->m_autoDel)
-	{
-		int ret = pthread_detach(pthread_self());
-		if (ret != 0)
-		{
-			zlog_warn(Util::m_zlog, "自动删除线程detach失败: %s", strerror(ret));
-		}
-	}
 	thread->Run();
 	Remove(thread);
 	if(thread->m_autoDel)
