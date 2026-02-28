@@ -29,7 +29,19 @@ ControlClient::ControlClient() :
 
 ControlClient::~ControlClient()
 {
-	// TODO 析构函数
+	this->CloseTcp();
+
+	if (NULL != m_tcpA)
+	{
+		delete m_tcpA;
+		m_tcpA = NULL;
+	}
+
+	if (NULL != m_tcpB)
+	{
+		delete m_tcpB;
+		m_tcpB = NULL;
+	}
 }
 
 void ControlClient::SetMasterManager(MasterManager* manager)

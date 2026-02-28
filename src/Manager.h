@@ -52,6 +52,7 @@ private:
 	bool m_ioStarted;
 	bool m_netStarted;
 	bool m_ctrlStarted;
+	bool m_pvVolStarted;
 
 	//IO通讯
 	IoManager m_io;

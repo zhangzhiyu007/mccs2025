@@ -13,7 +13,7 @@
 
 Manager::Manager()
     : m_memDbInited(false), m_deviceInited(false), m_ioStarted(false),
-      m_netStarted(false), m_ctrlStarted(false) {
+      m_netStarted(false), m_ctrlStarted(false), m_pvVolStarted(false) {
 }
 
 Manager::~Manager() {
@@ -24,27 +24,31 @@ int Manager::Init() {
     zlog_error(Util::m_zlog, "系统启动开始");
     int ret      = ErrorInfo::ERR_OK;
     bool success = false;
+    Device *dev  = NULL;
 
     // 1、实时数据库初始化
     zlog_error(Util::m_zlog, "初始化实时数据库");
     success = MemDb::Init();
     if (!success) {
         zlog_error(Util::m_zlog, "初始化实时数据库失败");
-        return ErrorInfo::ERR_OPENED;
+        ret = ErrorInfo::ERR_OPENED;
+        goto FAIL;
     }
     m_memDbInited = true;
     zlog_error(Util::m_zlog, "初始化实时数据库成功");
 
     // 2、初始化设备信息
     zlog_error(Util::m_zlog, "初始化设备信息");
-    Device *dev = Device::GetInstance();
+    dev = Device::GetInstance();
     if (NULL == dev) {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
-        return ErrorInfo::ERR_NULL;
+        ret = ErrorInfo::ERR_NULL;
+        goto FAIL;
     }
     if (!dev->Init()) {
         zlog_error(Util::m_zlog, "初始化设备信息失败");
-        return ErrorInfo::ERR_FAILED;
+        ret = ErrorInfo::ERR_FAILED;
+        goto FAIL;
     }
     m_deviceInited = true;
     zlog_error(Util::m_zlog, "初始化设备信息成功");
@@ -54,7 +58,8 @@ int Manager::Init() {
     ret = m_io.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动IO通讯失败");
-        return ErrorInfo::ERR_FAILED;
+        ret = ErrorInfo::ERR_FAILED;
+        goto FAIL;
     }
     m_ioStarted = true;
     zlog_error(Util::m_zlog, "启动IO通讯成功");
@@ -65,7 +70,8 @@ int Manager::Init() {
     ret = m_net.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动站内通讯失败");
-        return ErrorInfo::ERR_FAILED;
+        ret = ErrorInfo::ERR_FAILED;
+        goto FAIL;
     }
     m_netStarted = true;
     zlog_error(Util::m_zlog, "启动站内通讯成功");
@@ -77,7 +83,8 @@ int Manager::Init() {
     ret = m_ctrl.Init();
     if (ErrorInfo::ERR_OK != ret) {
         zlog_error(Util::m_zlog, "启动控制策略失败");
-        return ErrorInfo::ERR_FAILED;
+        ret = ErrorInfo::ERR_FAILED;
+        goto FAIL;
     }
     m_ctrlStarted = true;
     zlog_error(Util::m_zlog, "启动控制策略成功");
@@ -85,14 +92,24 @@ int Manager::Init() {
 
     // 6、开启波动率线程
     m_pvVolatility.Start();
+    m_pvVolStarted = true;
 
     zlog_error(Util::m_zlog, "系统启动结束");
 
+    return ret;
+
+FAIL:
+    Uninit();
     return ret;
 }
 
 void Manager::Uninit() {
     zlog_error(Util::m_zlog, "系统关闭开始");
+    if (m_pvVolStarted) {
+        m_pvVolatility.Stop();
+        m_pvVolStarted = false;
+    }
+
     //关闭控制策略
     if (m_ctrlStarted) {
         m_ctrl.Uninit();

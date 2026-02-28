@@ -23,6 +23,29 @@
 
 // #include "../device/chrpile/ChargePile.h"
 
+
+static bool IsThreadStopping(Thread* thread)
+{
+    return (thread->GetState() == Thread::STOPPING) ||
+           (thread->GetState() == Thread::STOPPED);
+}
+
+static bool InterruptibleSleepMs(Thread* thread, int totalMs)
+{
+    int left = totalMs;
+    while (left > 0)
+    {
+        if (IsThreadStopping(thread))
+        {
+            return false;
+        }
+        const int chunk = (left > 100) ? 100 : left;
+        msleep(chunk);
+        left -= chunk;
+    }
+    return !IsThreadStopping(thread);
+}
+
 /* Mingyu
  */
 #include "../device/CNCU/CNCU.h"
@@ -74,18 +97,14 @@ void SocketCtrlThread::Run() {
     Address(m_socketAddress->ip, m_socketAddress->port);
 
     TcpClient *client = m_tcpClient;
+    if (NULL == client) {
+        zlog_error(Util::m_zlog, "TcpClient为空, socket线程退出");
+        return;
+    }
 
     // 存取从设备信息数组
     Device::SlaveDev *slaveDev = NULL;
     PtrArray::iterator slaveIter;
-    int ret = ErrorInfo::ERR_OK;
-
-    // 通讯状态
-    bool comSuccess       = true;
-    int uNoResponse       = 0;  // 当前读取失败的次数
-    const int NO_RESPONSE = 10; // 连续该次数下认为通讯失败
-    int openFailed        = 0;
-
     // // ChargePile
     // ChargePile chargePile;
     // chargePile.SetIsTcp(true);
@@ -173,14 +192,16 @@ void SocketCtrlThread::Run() {
     zlog_warn(Util::m_zlog, "以太网从设备采集主程序执行");
     while (true) {
         // 判断线程是否结束
-        if (m_state == Thread::STOPPING) {
+        if (IsThreadStopping(this)) {
             zlog_warn(Util::m_zlog, "socket线程结束");
             break;
         }
 
         // 判断socket是否打开
         if (!client->IsOpened()) {
-            sleep(1);
+            if (!InterruptibleSleepMs(this, 1000)) {
+                break;
+            }
             continue;
         }
 
@@ -197,62 +218,66 @@ void SocketCtrlThread::Run() {
             // 判断设备厂商和型号来确定具体通信协议
             case DeviceType::DEVICE_TYPE_PCS:          // PCS
             case DeviceType::DEVICE_TYPE_BIPOLAR_ACDC: // 双极性AC/DC
-                ret = pcs.Preset(slaveDev);
+                pcs.Preset(slaveDev);
                 break;
             // case DeviceType::DEVICE_INSULATION_MONITOR: // 绝缘监测仪
-            //     ret = insulationMonitor.Preset(slaveDev);
+            //     insulationMonitor.Preset(slaveDev);
             //     break;
             case DeviceType::DEVICE_TYPE_DO_MODULE: // Do模块
-                ret = dido.Preset(slaveDev);
+                dido.Preset(slaveDev);
                 break;
             // case DeviceType::DEVICE_TYPE_CHARGE_PILE: // 充电桩
-            //     ret = chargePile.Preset(slaveDev);
+            //     chargePile.Preset(slaveDev);
             case DeviceType::DEVICE_TYPE_DCDC: // dcdc
-                ret = dcdc.Preset(slaveDev);
+                dcdc.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_SIMU_PV: // 光伏模拟器
-                ret = simulator.Preset(slaveDev);
+                simulator.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_PVS_XV: // 光伏逆变器
-                ret = pvs.Preset(slaveDev);
+                pvs.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_SINMU_LIB: // 电池模拟器
             case DeviceType::DEVICE_TYPE_LIION:     // 电池
-                ret = bms.Preset(slaveDev);
+                bms.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_SIMU_DC_LOAD: // 直流负载
             case DeviceType::DEVICE_TYPE_DC_LOAD:      // 直流负载
-                ret = dcload.Preset(slaveDev);
+                dcload.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_SIMU_AC_GRID: // 电网模拟器
-                ret = acSource.Preset(slaveDev);
+                acSource.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_CNCU: // Mingyu add on 20200217
-                ret = cncu.Preset(slaveDev);   // 复合节点控制器
+                cncu.Preset(slaveDev);   // 复合节点控制器
                 break;
             case DeviceType::DEVICE_TYPE_SIMU_CABLE: // Mingyu add on 20210322
-                ret = ImpSim.Preset(slaveDev);       // 复合节点控制器
+                ImpSim.Preset(slaveDev);       // 复合节点控制器
                 break;
             case DeviceType::DEVICE_TYPE_SINMU_GZ: // Mingyu add on 20210327
-                ret = FaultSim.Preset(slaveDev);   // 线路故障模拟器
+                FaultSim.Preset(slaveDev);   // 线路故障模拟器
                 break;
             case DeviceType::DEVICE_TYPE_SIMU_RLC: // RLC负载
-                ret = acLoad.Preset(slaveDev);
+                acLoad.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_WATT:
-                ret = hcWatt.Preset(slaveDev);
+                hcWatt.Preset(slaveDev);
                 break;
             case DeviceType::DEVICE_TYPE_STS:
-                ret = sts.Preset(slaveDev);
+                sts.Preset(slaveDev);
                 break;
             default:
                 break;
             };
 
-            msleep(50);
+            if (!InterruptibleSleepMs(this, 50)) {
+                break;
+            }
         }
 
-        msleep(100);
+        if (!InterruptibleSleepMs(this, 100)) {
+            break;
+        }
     }
 }
 

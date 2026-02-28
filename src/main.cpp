@@ -8,6 +8,14 @@
 #include "./Manager.h"
 #include "./db/Device.h"
 #include "./util/Util.h"
+#include <signal.h>
+
+static volatile sig_atomic_t g_stopFlag = 0;
+
+static void HandleStopSignal(int signum) {
+    (void)signum;
+    g_stopFlag = 1;
+}
 
 //主函数
 int main(int argc, char **argv) {
@@ -42,7 +50,10 @@ int main(int argc, char **argv) {
                wdOpened ? "成功" : "失败");
 #endif
 
-    while (true) {
+    signal(SIGINT, HandleStopSignal);
+    signal(SIGTERM, HandleStopSignal);
+
+    while (!g_stopFlag) {
         //喂狗操作
         watchDog.Feed();
         sleep(1);

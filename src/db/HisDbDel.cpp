@@ -69,7 +69,7 @@ bool HisDbDel::InitHisConfig()
 	//1、打开数据库
 	if (!db->IsOpen())
 	{
-		if (db->Open())
+		if (!db->Open())
 		{
 			zlog_warn(Util::m_zlog, "配置数据库打开失败");
 			return false;
@@ -236,7 +236,7 @@ bool HisDbDel::DelHisData()
 	//1、打开数据库
 	if (!db->IsOpen())
 	{
-		if (db->Open())
+		if (!db->Open())
 		{
 			zlog_warn(Util::m_zlog, "历史数据库打开失败");
 			return false;
