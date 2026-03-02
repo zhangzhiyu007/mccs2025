@@ -39,7 +39,7 @@ public:
 	 * 功能: 停止IO通讯相关线程
 	 * 输出: 无
 	 */
-	void Uninit();
+	int Uninit();
 protected:
 private:
 	//通讯

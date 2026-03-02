@@ -94,7 +94,7 @@ int IoManager::Init()
  * 功能: 停止IO通讯相关线程
  * 输出: 无
  */
-void IoManager::Uninit()
+int IoManager::Uninit()
 {
 	zlog_warn(Util::m_zlog, "关闭IO通讯相关线程");
 	//关闭以太网通讯线程
@@ -122,6 +122,9 @@ void IoManager::Uninit()
 	{
 		zlog_error(Util::m_zlog,
 				"关闭socket线程池最终失败，可能仍有线程/资源处于保留状态");
+		zlog_error(Util::m_zlog,
+				"检测到socket线程仍可能存活，阻断后续IO拆除(CAN/COM)以避免并发访问已去初始化全局资源");
+		return ErrorInfo::ERR_FAILED;
 	}
 
 	//2、关闭CAN通讯
@@ -130,5 +133,5 @@ void IoManager::Uninit()
 	m_comThreads.CloseThreads();
 
 	zlog_warn(Util::m_zlog, "关闭IO通讯相关线程结束");
-	return;
+	return (socketCloseRet == ErrorInfo::ERR_OK) ? ErrorInfo::ERR_OK : ErrorInfo::ERR_FAILED;
 }
