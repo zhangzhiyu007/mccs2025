@@ -183,10 +183,8 @@ int SocketThreads::OpenThreads()
 					socketAddress->ip.c_str(), socketAddress->port);
 			delete socketCtrlThread;
 			socketCtrlThread = NULL;
-			if (socketThread->IsAlive())
-			{
-				socketThread->Stop();
-			}
+			// 无条件Stop：避免线程注册表尚未Add时 IsAlive() 误判导致UAF
+			socketThread->Stop();
 			delete socketThread;
 			socketThread = NULL;
 			m_socketThreads.pop_back();

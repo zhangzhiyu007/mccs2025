@@ -86,9 +86,8 @@ void Thread::Join()
 		ret = pthread_timedjoin_np(m_handle, (void**) &dummy, &timeout);
 		if (ret == ETIMEDOUT)
 		{
-			zlog_error(Util::m_zlog, "线程等待超时(5s): handle=%lu", (unsigned long)m_handle);
-			m_state = RUNNING;
-			return;
+			zlog_error(Util::m_zlog, "线程等待超时(5s)，改为继续阻塞等待: handle=%lu", (unsigned long)m_handle);
+			ret = pthread_join(m_handle, (void**) &dummy);
 		}
 	}
 	else
