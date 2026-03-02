@@ -124,7 +124,10 @@ void Manager::Uninit() {
 
     //关闭通讯线程池
     if (m_ioStarted) {
-        m_io.Uninit();
+        if (ErrorInfo::ERR_OK != m_io.Uninit()) {
+            zlog_error(Util::m_zlog, "关闭IO通讯失败，终止后续反初始化以避免资源被提前释放");
+            return;
+        }
         m_ioStarted = false;
     }
 
