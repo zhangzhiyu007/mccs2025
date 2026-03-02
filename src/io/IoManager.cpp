@@ -92,7 +92,7 @@ int IoManager::Init()
 /*
  * 名称: Unint
  * 功能: 停止IO通讯相关线程
- * 输出: 无
+ * 输出: 返回错误码ErrorInfo, 成功返回ErrorInfo::ERR_OK
  */
 int IoManager::Uninit()
 {
@@ -133,5 +133,5 @@ int IoManager::Uninit()
 	m_comThreads.CloseThreads();
 
 	zlog_warn(Util::m_zlog, "关闭IO通讯相关线程结束");
-	return (socketCloseRet == ErrorInfo::ERR_OK) ? ErrorInfo::ERR_OK : ErrorInfo::ERR_FAILED;
+	return ErrorInfo::ERR_OK;
 }

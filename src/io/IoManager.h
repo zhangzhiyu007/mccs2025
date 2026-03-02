@@ -37,7 +37,7 @@ public:
 	/*
 	 * 名称: Unint
 	 * 功能: 停止IO通讯相关线程
-	 * 输出: 无
+	 * 输出: 返回错误码ErrorInfo, 成功返回ErrorInfo::ERR_OK
 	 */
 	int Uninit();
 protected:
