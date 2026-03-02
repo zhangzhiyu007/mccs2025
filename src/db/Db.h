@@ -11,6 +11,9 @@
 #include "../util/Util.h"
 #include "Device.h"
 
+struct sqlite3;
+struct sqlite3_stmt;
+
 //数据库操作错误码
 #define DB_OK           0   /* 数据库操作成功 */
 /* beginning-of-error-codes */
@@ -318,6 +321,7 @@ private:
 	 * 输出: 成功/失败
 	 */
 	bool OpenDb();
+	bool HasStmtLocked(const char* caller) const;
 
 	//变量
 public:
@@ -330,6 +334,8 @@ private:
 	bool m_dbOpen;//数据库是否打开
 	bool m_isKey;//数据库是否加密
 	int m_dbTimeout;//设置数据库操作超时时间，ms
+	sqlite3* m_dbConn;//当前实例的数据库连接
+	sqlite3_stmt* m_stmt;//当前实例的预处理语句
 
 };
 
