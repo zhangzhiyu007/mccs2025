@@ -56,3 +56,13 @@
   2. 对应模块最小冒烟（停机、重连、配置读取）
   3. 回归通过再推进下一项。
 
+
+
+## 附：遗留问题关注位置（便于直接排查）
+
+- P1-1 线程停止策略：`src/etc/socket/Thread.cpp`（`Thread::Join`）
+- P1-2 Socket 分段耗时：`src/io/socket/SocketThreads.cpp`（`CloseThreads`）
+- P1-3 IoManager 失败上报：`src/io/IoManager.cpp`（`Uninit`）/ `src/Manager.cpp`（`Uninit`）
+- P2-1 设备告警收敛：`src/io/device/**`、`src/net/**`、`src/io/protocol/**`
+- P2-2 TODO/UNUSED 清理：`src/main.cpp`、`src/Manager.cpp`、`src/io/IoManager.cpp`、`src/io/socket/SocketThreads.cpp`
+

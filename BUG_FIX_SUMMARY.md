@@ -147,3 +147,48 @@
 
 - 本轮属于“**高风险问题优先修复**”并已完成核心闭环。  
 - 仍有后续收敛项（见 `BUG_BACKLOG.md`），但不影响本阶段入库目标：稳定性提升与回归能力增强。
+
+---
+
+## 5. 关键修复位置索引（文件 / 函数 / 代码位置）
+
+### 5.1 生命周期与停机
+- `src/main.cpp`
+  - `HandleStopSignal`：信号置位退出标志。
+  - `main`：注册 `SIGINT/SIGTERM`，循环以 `g_stopFlag` 退出并执行 `manager.Uninit`。
+- `src/Manager.cpp`
+  - `Manager::Init`：统一 `FAIL` 回滚。
+  - `Manager::Uninit`：按模块标志对称关闭；IO 失败时阻断后续释放。
+
+### 5.2 线程与并发
+- `src/etc/socket/Thread.cpp`
+  - `Thread::Start`：`pthread_create` 返回值检查。
+  - `Thread::Join`：`pthread_timedjoin_np` 超时后改阻塞 `pthread_join`。
+  - `Thread::Init`：auto-delete 线程 detach；`Run` 后 Remove + delete。
+  - `CurrentThread` / `ActiveCount`：线程表并发安全访问。
+
+### 5.3 DB 所有权与语句生命周期
+- `src/db/Db.cpp`
+  - `ScopedDbLock`：`pthread_once + recursive mutex`。
+  - `Db::Db`：实例句柄 `m_dbConn/m_stmt` 初始化。
+  - `Db::Close`：先 finalize statement 再 close connection。
+  - `Db::BindBlob`：使用 `sqlite3_bind_blob`。
+
+### 5.4 IO / Socket 关闭顺序
+- `src/io/IoManager.cpp`
+  - `IoManager::Uninit`：socket 关闭重试 + fail-fast 返回。
+- `src/io/IoManager.h`
+  - `Uninit`：从 `void` 改为 `int`，向上层传播失败。
+- `src/io/socket/SocketThreads.cpp`
+  - `OpenThreads`：控制线程启动失败时无条件 `socketThread->Stop()` 回滚。
+  - `CloseThreads`：先 close client，再 stop 线程，再 delete 对象；输出总耗时日志。
+
+### 5.5 配置与历史库
+- `src/db/HisDbSave.cpp` / `src/db/HisDbDel.cpp`
+  - `InitHisConfig`：`db->Open()` 失败判断修正为 `if (!db->Open())`。
+
+### 5.6 构建与回归
+- `src/Makefile`
+  - `CROSS` / `USE_API_LIBS` / `print-config` / `-MMD -MP` 依赖跟踪。
+  - `USE_API_LIBS=0` 下 object-only 编译路径。
+
