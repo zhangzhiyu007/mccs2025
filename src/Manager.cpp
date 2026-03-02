@@ -124,7 +124,11 @@ void Manager::Uninit() {
 
     //关闭通讯线程池
     if (m_ioStarted) {
-        m_io.Uninit();
+        int ioUninitRet = m_io.Uninit();
+        if (ioUninitRet != ErrorInfo::ERR_OK) {
+            zlog_error(Util::m_zlog, "IO通讯线程未完全关闭，阻断后续MemDb/Device反初始化，等待后续重试关闭");
+            return;
+        }
         m_ioStarted = false;
     }
 
