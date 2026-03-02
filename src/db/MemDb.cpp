@@ -14,6 +14,8 @@
 RealData *MemDb::m_realData = NULL; // 实时数据表，
 int MemDb::m_realDataId     = -1;   //
 pthread_mutex_t MemDb::m_mutexRealData;
+static pthread_mutex_t s_memDbInitMutex = PTHREAD_MUTEX_INITIALIZER;
+static bool s_memDbMutexInited = false;
 
 #define WRITED_NUM 5
 MemDb::MemDb() {
@@ -37,67 +39,60 @@ bool MemDb::Init() {
 
 void MemDb::Uninit() {
     zlog_info(Util::m_zlog, "内存共享数据库反初始化");
+
+    pthread_mutex_lock(&s_memDbInitMutex);
+
     // Util::DelMem(m_realDataId);//释放内存共享
     if (NULL != m_realData) {
         delete[] m_realData;
         m_realData = NULL;
     }
 
-    // 销毁互斥变量
-    pthread_mutex_destroy(&m_mutexRealData);
+    // 销毁互斥变量（仅在已初始化时销毁）
+    if (s_memDbMutexInited) {
+        pthread_mutex_destroy(&m_mutexRealData);
+        s_memDbMutexInited = false;
+    }
+
+    pthread_mutex_unlock(&s_memDbInitMutex);
     return;
 }
 
 bool MemDb::OpenMem() {
     zlog_info(Util::m_zlog, "内存共享数据库:开启内存共享");
-    bool ret = false;
 
-    // 采用内存共享时采用
-    //	RealData* tmp = NULL;
-    //	int shmid = -1;
-    //	int id = 0;
-    //
-    //	//开启实时数据内存共享
-    //	id = REAL_DATA_ID;
-    //	ret = Util::CreateMem((void**)&tmp, shmid, id, sizeof(RealData) *
-    //MAX_LENGTH); 	if (ret)
-    //	{
-    //		m_realData = (RealData*)tmp;
-    //		zlog_info(Util::m_zlog,"id = %d",id);
-    //		m_realDataId = id;
-    //		zlog_info(Util::m_zlog, "内存共享数据库开启");
-    //	}
-    //	else
-    //	{
-    //		zlog_warn(Util::m_zlog,
-    //"内存共享数据库开启实时数据内存共享失败"); 		return false;
-    //	}
-    //
-    //	//打开互斥
-    //	ret = Util::InitMutex(&MemDb::m_mutexRealData);
-    //	if (!ret)
-    //	{
-    //		zlog_warn(Util::m_zlog, "内存共享数据库开启实时数据互斥失败");
-    //		return false;
-    //	}
+    pthread_mutex_lock(&s_memDbInitMutex);
+
+    if (!s_memDbMutexInited) {
+        if (pthread_mutex_init(&m_mutexRealData, NULL) != 0) {
+            pthread_mutex_unlock(&s_memDbInitMutex);
+            zlog_warn(Util::m_zlog, "内存共享数据库开启实时数据互斥失败");
+            return false;
+        }
+        s_memDbMutexInited = true;
+    }
+
+    bool needInit = false;
 
     // 开启数据共享
     if (NULL == m_realData) {
         m_realData = new RealData[MAX_LENGTH];
         memset(m_realData, 0, sizeof(RealData) * MAX_LENGTH);
-    }
-    // 互斥初始化
-    pthread_mutex_init(&m_mutexRealData, NULL);
-
-    // 初始化数据
-    for (int i = 0; i < MAX_LENGTH; i++) {
-        m_realData[i].addr       = i;
-        m_realData[i].readed     = false;
-        m_realData[i].writed     = false;
-        m_realData[i].pv.type    = RealData::INT;
-        m_realData[i].writed_num = 0;
+        needInit = true;
     }
 
+    if (needInit) {
+        // 初始化数据
+        for (int i = 0; i < MAX_LENGTH; i++) {
+            m_realData[i].addr       = i;
+            m_realData[i].readed     = false;
+            m_realData[i].writed     = false;
+            m_realData[i].pv.type    = RealData::INT;
+            m_realData[i].writed_num = 0;
+        }
+    }
+
+    pthread_mutex_unlock(&s_memDbInitMutex);
     return true;
 }
 
@@ -222,6 +217,7 @@ bool MemDb::SetRealData(int addr, int data, bool writed) {
     realData.addr = addr;
     // time(&realData.now);
     realData.pv.type             = RealData::INT;
+    realData.pv.data.iValue      = 0;
     realData.pv.data_last.iValue = realData.pv.data.iValue;
     realData.pv.data.iValue      = data;
     realData.readed              = !writed;
@@ -235,6 +231,7 @@ bool MemDb::SetRealData(int addr, float data, bool writed) {
     realData.addr = addr;
     // time(&realData.now);
     realData.pv.type              = RealData::DB;
+    realData.pv.data.dbValue      = 0.0f;
     realData.pv.data_last.dbValue = realData.pv.data.dbValue;
     realData.pv.data.dbValue      = data;
     realData.readed               = !writed;

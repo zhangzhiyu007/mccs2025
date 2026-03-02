@@ -73,7 +73,13 @@ void Top::Run()
 		softIrq = 0;
 
 		//第一次读取CPU数据
-		fgets(buf, sizeof(buf), fp);
+		if (NULL == fgets(buf, sizeof(buf), fp))
+		{
+			clearerr(fp);
+			rewind(fp);
+			sleep(1);
+			continue;
+		}
 		sscanf(buf, "%s%ld%ld%ld%ld%ld%ld%ld", cpu, &user, &nice, &sys, &idle,
 				&ioWait, &irq, &softIrq);
 
@@ -95,7 +101,13 @@ void Top::Run()
 		irq = 0;
 		softIrq = 0;
 
-		fgets(buf, sizeof(buf), fp);
+		if (NULL == fgets(buf, sizeof(buf), fp))
+		{
+			clearerr(fp);
+			rewind(fp);
+			sleep(1);
+			continue;
+		}
 		sscanf(buf, "%s%ld%ld%ld%ld%ld%ld%ld", cpu, &user, &nice, &sys, &idle,
 				&ioWait, &irq, &softIrq);
 

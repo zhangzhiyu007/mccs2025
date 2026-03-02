@@ -47,14 +47,14 @@ class RLCLoad {
   private:
     TcpClient *m_tcpClient;
 
-    int m_cur_range[3] = {0};
-    int m_cur_ratio[3] = {0};
+    int m_cur_range[3];
+    int m_cur_ratio[3];
 
-    int m_volt_range[3] = {0};
-    int m_volt_ratio[3] = {0};
+    int m_volt_range[3];
+    int m_volt_ratio[3];
 
-    float m_cur_index[3]   = {0.0};
-    float m_volt_index[3]  = {0.0};
-    float m_power_index[3] = {0.0};
+    float m_cur_index[3];
+    float m_volt_index[3];
+    float m_power_index[3];
 };
 #endif // !_RCL_LOAD_30_H_

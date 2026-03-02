@@ -412,12 +412,12 @@ int ANSimultor::AcltAnPreset(Device::SlaveDev* dev)
 		if (realData.pv.type == RealData::INT)
 		{
 		values.push_back(realData.pv.data.iValue);
-		zlog_warn(Util::m_zlog, "读取%s电源短路电流（Isc5555555555）失败，结果=%d",realData.pv.data.iValue);
+		zlog_warn(Util::m_zlog, "设置电源短路电流（Isc）INT，结果=%d", realData.pv.data.iValue);
 		}
 		else if (realData.pv.type == RealData::DB)
 		{
 		values.push_back(realData.pv.data.dbValue);
-		zlog_warn(Util::m_zlog, "读取%s电源短路电流（Isc77777777777777）失败，结果=%f",realData.pv.data.dbValue);
+		zlog_warn(Util::m_zlog, "设置电源短路电流（Isc）DB，结果=%f", realData.pv.data.dbValue);
 		}
 		ret = this->AnPreset(addr, 0x5A, 0x70, 9, values);
 	}
@@ -560,7 +560,7 @@ int ANSimultor::AcltAnPreset(Device::SlaveDev* dev)
 		else if (realData.pv.type == RealData::DB)
 		{
 			values.push_back(realData.pv.data.dbValue * 10.0);
-			//zlog_warn(Util::m_zlog, "读取%s电源短路电流（Isc77777777777777）失败，结果=%f",realData.pv.data.dbValue);
+			//zlog_warn(Util::m_zlog, "设置电源短路电流（Isc）DB，结果=%f", realData.pv.data.dbValue);
 		}
 		ret = this->AnPreset(addr, 0x5A, 0x41, 10, values);
 

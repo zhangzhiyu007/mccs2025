@@ -94,19 +94,49 @@ int IoManager::Init()
  * 功能: 停止IO通讯相关线程
  * 输出: 无
  */
-void IoManager::Uninit()
+int IoManager::Uninit()
 {
 	zlog_warn(Util::m_zlog, "关闭IO通讯相关线程");
+	int ret = ErrorInfo::ERR_OK;
 	//关闭以太网通讯线程
 	m_tcpThreadedServer.Stop();
 
-	//1、关闭以太网通讯
-	m_socketThreads.CloseThreads();
+	//1、关闭以太网通讯（失败则重试，仍失败视为硬故障）
+	const int maxRetry = 3;
+	int socketCloseRet = ErrorInfo::ERR_FAILED;
+	for (int i = 0; i < maxRetry; ++i)
+	{
+		socketCloseRet = m_socketThreads.CloseThreads();
+		if (socketCloseRet == ErrorInfo::ERR_OK)
+		{
+			break;
+		}
+		zlog_error(Util::m_zlog,
+				"关闭socket线程池失败(第%d/%d次)", i + 1, maxRetry);
+	}
+
+	if (socketCloseRet != ErrorInfo::ERR_OK)
+	{
+		zlog_error(Util::m_zlog,
+				"关闭socket线程池最终失败，停止后续IO反初始化，防止线程在去初始化状态继续运行");
+		return ErrorInfo::ERR_FAILED;
+	}
+
 	//2、关闭CAN通讯
-	m_canThreads.CloseThreads();
+	ret = m_canThreads.CloseThreads();
+	if (ret != ErrorInfo::ERR_OK)
+	{
+		zlog_error(Util::m_zlog, "关闭CAN线程池失败");
+		return ErrorInfo::ERR_FAILED;
+	}
 	//3、关闭串口通讯
-	m_comThreads.CloseThreads();
+	ret = m_comThreads.CloseThreads();
+	if (ret != ErrorInfo::ERR_OK)
+	{
+		zlog_error(Util::m_zlog, "关闭串口线程池失败");
+		return ErrorInfo::ERR_FAILED;
+	}
 
 	zlog_warn(Util::m_zlog, "关闭IO通讯相关线程结束");
-	return;
+	return ErrorInfo::ERR_OK;
 }

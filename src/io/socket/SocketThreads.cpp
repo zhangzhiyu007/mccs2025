@@ -9,6 +9,7 @@
 #include "../../Manager.h"
 #include "SocketCtrlThread.h"
 #include "SocketThread.h"
+#include <time.h>
 
 SocketThreads::SocketThreads()
 {
@@ -16,6 +17,8 @@ SocketThreads::SocketThreads()
 	m_serverManager = NULL;
 	m_socketTypeDevs.clear();
 	m_socketThreads.clear();
+	m_socketCtrlThreads.clear();
+	m_tcpClients.clear();
 }
 
 SocketThreads::~SocketThreads()
@@ -23,7 +26,7 @@ SocketThreads::~SocketThreads()
 	// TODO Auto-generated destructor stub
 	m_serverManager = NULL;
 
-	if (!m_socketThreads.empty())
+	if (!m_socketThreads.empty() || !m_socketCtrlThreads.empty() || !m_tcpClients.empty() || !m_socketTypeDevs.empty())
 	{
 		CloseThreads();
 	}
@@ -44,15 +47,36 @@ int SocketThreads::OpenThreads()
 {
 	//得到实例并初始化
 	Device* device = Device::GetInstance();
+	if (NULL == device)
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: Device实例为空");
+		return ErrorInfo::ERR_NULL;
+	}
 
 	//获取网口从设备信息指针
 	PtrArray* slaveArray = device->GetSlaveDevArray();
+	if (NULL == slaveArray)
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: 从设备数组为空");
+		return ErrorInfo::ERR_NULL;
+	}
 
 	//读取通讯类型指针
 	PtrArray* constCommTypeArray = device->GetConstCommTypeArray();
+	if ((NULL == constCommTypeArray) || (constCommTypeArray->size() <= 1))
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: 通讯类型配置无效");
+		return ErrorInfo::ERR_FAILED;
+	}
+
 	//以太网类型
 	Device::ConstCommType* commType =
 			(Device::ConstCommType*) constCommTypeArray->at(1);
+	if (NULL == commType)
+	{
+		zlog_error(Util::m_zlog, "创建设备通讯线程失败: 以太网通讯类型为空");
+		return ErrorInfo::ERR_NULL;
+	}
 
 	//存取从设备信息数组
 	Device::SlaveDev* slaveDev = NULL;
@@ -114,6 +138,7 @@ int SocketThreads::OpenThreads()
 	//为每个IP和端口开辟通讯线程
 	zlog_warn(Util::m_zlog,"为每个IP和端口开辟通讯线程");
 	TcpClient* client;
+	int createdCount = 0;
 	for (socketIter = m_socketTypeDevs.begin(); socketIter
 			!= m_socketTypeDevs.end(); socketIter++)
 	{
@@ -125,6 +150,7 @@ int SocketThreads::OpenThreads()
 
 		//创建线程
 		client = new TcpClient();
+		m_tcpClients.push_back(client);
 
 		zlog_warn(Util::m_zlog, "创建以太网通讯线程,通信参数:IP=%s,port=%d",
 				socketAddress->ip.c_str(), socketAddress->port);
@@ -133,6 +159,16 @@ int SocketThreads::OpenThreads()
 		socketThread->SetSocketThreads(this);
 		socketThread->SetTcpClent(client);
 		socketThread->Start();
+		if (socketThread->GetState() != Thread::RUNNING)
+		{
+			zlog_error(Util::m_zlog, "采集线程启动失败: IP=%s,port=%d",
+					socketAddress->ip.c_str(), socketAddress->port);
+			delete socketThread;
+			socketThread = NULL;
+			delete client;
+			m_tcpClients.pop_back();
+			continue;
+		}
 		m_socketThreads.push_back(socketThread);
 
 		//创建控制线程
@@ -141,11 +177,31 @@ int SocketThreads::OpenThreads()
 		socketCtrlThread->SetSocketThreads(this);
 		socketCtrlThread->SetTcpClent(client);
 		socketCtrlThread->Start();
+		if (socketCtrlThread->GetState() != Thread::RUNNING)
+		{
+			zlog_error(Util::m_zlog, "控制线程启动失败: IP=%s,port=%d",
+					socketAddress->ip.c_str(), socketAddress->port);
+			delete socketCtrlThread;
+			socketCtrlThread = NULL;
+			// 无条件Stop：避免线程注册表尚未Add时 IsAlive() 误判导致UAF
+			socketThread->Stop();
+			delete socketThread;
+			socketThread = NULL;
+			m_socketThreads.pop_back();
+			delete client;
+			m_tcpClients.pop_back();
+			continue;
+		}
 		m_socketCtrlThreads.push_back(socketCtrlThread);
-
+		createdCount++;
 	}
 
-	zlog_warn(Util::m_zlog,"创建以太网通讯结束");
+	zlog_warn(Util::m_zlog,"创建以太网通讯结束,成功创建线程组=%d", createdCount);
+
+	if ((m_socketTypeDevs.size() > 0) && (createdCount == 0))
+	{
+		return ErrorInfo::ERR_FAILED;
+	}
 
 	return ErrorInfo::ERR_OK;
 }
@@ -153,9 +209,23 @@ int SocketThreads::OpenThreads()
 //关闭socket线程
 int SocketThreads::CloseThreads()
 {
-	zlog_info(Util::m_zlog,"关闭socket线程");
+	const time_t begin = time(NULL);
+	zlog_info(Util::m_zlog,"关闭socket线程: ctrl=%d, io=%d, client=%d, addr=%d",
+			(int)m_socketCtrlThreads.size(), (int)m_socketThreads.size(),
+			(int)m_tcpClients.size(), (int)m_socketTypeDevs.size());
 
 	UINT i;
+
+	// 先关闭TCP客户端连接，帮助阻塞IO快速返回（对象延后删除）
+	TcpClient* client = NULL;
+	for (i = 0; i < m_tcpClients.size(); i++)
+	{
+		client = (TcpClient*) m_tcpClients[i];
+		if (NULL != client)
+		{
+			client->Close();
+		}
+	}
 
 	//关闭控制线程
 	SocketCtrlThread* socketCtrlThread = NULL;
@@ -163,7 +233,6 @@ int SocketThreads::CloseThreads()
 	{
 		socketCtrlThread = (SocketCtrlThread*) m_socketCtrlThreads[i];
 
-		//判断socket线程是否打开
 		if (NULL != socketCtrlThread)
 		{
 			if (socketCtrlThread->IsAlive())
@@ -177,13 +246,12 @@ int SocketThreads::CloseThreads()
 	}
 	m_socketCtrlThreads.clear();
 
-	//关闭线程
+	//关闭采集线程
 	SocketThread* socketThread = NULL;
 	for (i = 0; i < m_socketThreads.size(); i++)
 	{
 		socketThread = (SocketThread*) m_socketThreads[i];
 
-		//判断socket线程是否打开
 		if (NULL != socketThread)
 		{
 			if (socketThread->IsAlive())
@@ -197,6 +265,18 @@ int SocketThreads::CloseThreads()
 	}
 	m_socketThreads.clear();
 
+	//删除TCP客户端对象
+	for (i = 0; i < m_tcpClients.size(); i++)
+	{
+		client = (TcpClient*) m_tcpClients[i];
+		if (NULL != client)
+		{
+			delete client;
+			client = NULL;
+		}
+	}
+	m_tcpClients.clear();
+
 	//关闭以太网设备
 	SocketAddress* socketAddress = NULL;
 	for (i = 0; i < m_socketTypeDevs.size(); i++)
@@ -208,7 +288,10 @@ int SocketThreads::CloseThreads()
 			socketAddress = NULL;
 		}
 	}
+	m_socketTypeDevs.clear();
 
+	const time_t end = time(NULL);
+	zlog_info(Util::m_zlog, "关闭socket线程结束,耗时=%d s", (int)(end - begin));
 	return ErrorInfo::ERR_OK;
 }
 
