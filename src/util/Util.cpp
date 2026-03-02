@@ -112,7 +112,15 @@ bool Util::InitZlog()
 
 	//读取当前目录
 	Util::GetCurDir(curDir, ARRAY_LENGTH_1024);
-	sprintf(curFile, "%sconf/log.conf", curDir);
+	const size_t curDirLen = strlen(curDir);
+	const size_t suffixLen = sizeof("conf/log.conf") - 1;
+	if ((curDirLen + suffixLen + 1) > sizeof(curFile))
+	{
+		printf("InitZlog path too long\n");
+		return false;
+	}
+	memcpy(curFile, curDir, curDirLen);
+	memcpy(curFile + curDirLen, "conf/log.conf", suffixLen + 1);
 
 	//读取配置文件
 	printf("InitZlog file path = %s\n",curFile);
@@ -163,22 +171,39 @@ bool Util::GetMemUsage(float& mem)
 		zlog_warn(Util::m_zlog,"打开/proc/meminfo文件失败");
 		return false;
 	}
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &memTotal, name1);
 
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &memFree, name1);
 
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &buffers, name1);
 
-	fgets(buf, sizeof(buf), fp);
+	if (NULL == fgets(buf, sizeof(buf), fp))
+	{
+		fclose(fp);
+		return false;
+	}
 	sscanf(buf, "%s %ld %s", name, &cached, name1);
 
 	used = memTotal - memFree;
 	usage = (float) used / memTotal * 100;
 
 	mem = usage;
+	fclose(fp);
 	return true;
 }
 
@@ -448,17 +473,22 @@ bool Util::DelMem(int shmid)
 }
 
 //初始化互斥
-bool Util::InitMutex(pthread_mutex_t* mutex)
+bool Util::InitMutex(pthread_mutex_t** mutex)
 {
-	mutex = NULL;
 	zlog_info(Util::m_zlog, "初始化进程间互斥");
+	if (NULL == mutex)
+	{
+		zlog_warn(Util::m_zlog, "初始化进程间互斥失败: 参数为空");
+		return false;
+	}
+
+	*mutex = NULL;
 	int ret = 0;
 	//m_mutex一定要是进程间可以共享的，否则无法达到进程间互斥
-	mutex = (pthread_mutex_t*) mmap(NULL, sizeof(pthread_mutex_t), PROT_READ
+	pthread_mutex_t* newMutex = (pthread_mutex_t*) mmap(NULL, sizeof(pthread_mutex_t), PROT_READ
 			| PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	if (MAP_FAILED == mutex)
+	if (MAP_FAILED == newMutex)
 	{
-		mutex = NULL;
 		zlog_warn(Util::m_zlog, "内存共享失败导致初始化进程间互斥失败");
 		return false;
 	}
@@ -471,12 +501,21 @@ bool Util::InitMutex(pthread_mutex_t* mutex)
 	ret = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
 	if (ret != 0)
 	{
-		mutex = NULL;
+		munmap(newMutex, sizeof(pthread_mutex_t));
 		zlog_warn(Util::m_zlog, "初始化pthread_mutexattr_setpshared失败");
 		return false;
 	}
-	pthread_mutex_init(mutex, &attr);
 
+	ret = pthread_mutex_init(newMutex, &attr);
+	pthread_mutexattr_destroy(&attr);
+	if (ret != 0)
+	{
+		munmap(newMutex, sizeof(pthread_mutex_t));
+		zlog_warn(Util::m_zlog, "初始化pthread_mutex失败");
+		return false;
+	}
+
+	*mutex = newMutex;
 	return true;
 }
 

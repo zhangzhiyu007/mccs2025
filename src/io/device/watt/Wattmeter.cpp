@@ -134,7 +134,7 @@ int Wattmeter::Dlt645_1997Read(Device::SlaveDev *dev) {
                 dataTemp->data = dataTemp->data * 10;
                 tmp2           = dataTemp->data * 0.1;
                 zlog_debug(Util::m_zlog, "电压原始值=%.2f,实际值 = %.2f",
-                           dataTemp->data, tmp2);
+                           (double)dataTemp->data, tmp2);
                 MemDb::SetRealData(regStart + i + 0, tmp2, false);
             }
         }
@@ -145,7 +145,7 @@ int Wattmeter::Dlt645_1997Read(Device::SlaveDev *dev) {
             if (dataTemp->flag) {
                 tmp2 = dataTemp->data * dev->rate * 0.01;
                 zlog_debug(Util::m_zlog, "电流原始值=%.2f,实际值 = %.2f",
-                           dataTemp->data, tmp2);
+                           (double)dataTemp->data, tmp2);
                 MemDb::SetRealData(regStart + i + 0, tmp2, false);
             }
         }
@@ -157,7 +157,7 @@ int Wattmeter::Dlt645_1997Read(Device::SlaveDev *dev) {
                 tmp2 = dataTemp->data * dev->rate * 0.0001 * 1000;
                 tmp3 += tmp2;
                 zlog_debug(Util::m_zlog, "有功原始值=%.2f,实际值 = %.2f",
-                           dataTemp->data, tmp2);
+                           (double)dataTemp->data, tmp2);
                 MemDb::SetRealData(regStart + i + 0, tmp2, false);
             }
         }
@@ -171,7 +171,7 @@ int Wattmeter::Dlt645_1997Read(Device::SlaveDev *dev) {
                 tmp2 = dataTemp->data * dev->rate * 0.01 * 1000;
                 tmp3 += tmp2;
                 zlog_debug(Util::m_zlog, "无功功原始值=%.2f,实际值 = %.2f",
-                           dataTemp->data, tmp2);
+                           (double)dataTemp->data, tmp2);
                 MemDb::SetRealData(regStart + i + 0, tmp2, false);
             }
         }
@@ -185,7 +185,7 @@ int Wattmeter::Dlt645_1997Read(Device::SlaveDev *dev) {
                 tmp2 = dataTemp->data * dev->rate * 0.01 * 1000;
                 tmp3 += tmp2;
                 zlog_debug(Util::m_zlog, "无功功原始值=%.2f,实际值 = %.2f",
-                           dataTemp->data, tmp2);
+                           (double)dataTemp->data, tmp2);
                 MemDb::SetRealData(regStart + i + 0, tmp2, false);
             }
         }
@@ -196,8 +196,8 @@ int Wattmeter::Dlt645_1997Read(Device::SlaveDev *dev) {
         if (dataTemp->flag) {
             tmp2 = dataTemp->data * 0.001;
             MemDb::SetRealData(regStart + 25, tmp2, false);
-            zlog_debug(Util::m_zlog, "功率因数：读取=%d,码值=%d，实际值= %.2f",
-                       dataTemp->flag, dataTemp->data, tmp2);
+            zlog_debug(Util::m_zlog, "功率因数：读取=%d,码值=%.2f，实际值= %.2f",
+                       dataTemp->flag, (double)dataTemp->data, tmp2);
         }
 
         //正向、反向有功无功电能21-24，原始0.01kwh

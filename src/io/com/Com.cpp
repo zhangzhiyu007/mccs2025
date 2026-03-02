@@ -278,11 +278,11 @@ int Com::Read(String& dataRead, int len)
 
 int Com::Write(String& dataWrite)
 {
-	zlog_info(Util::m_zlog, "向串口写入数据,长度%d",dataWrite.size());
+	zlog_info(Util::m_zlog, "向串口写入数据,长度%d", (int)dataWrite.size());
 
 	size_t left = dataWrite.size();
 	size_t done = 0;
-	size_t res = 0;
+	ssize_t res = 0;
 	fd_set writings;
 	struct timeval tval;
 	int ret = 0;
@@ -292,7 +292,7 @@ int Com::Write(String& dataWrite)
 
 	char* tmpDataWrite=new char[dataWrite.size()+1];
 	memset(tmpDataWrite, 0, dataWrite.size()+1);
-	int i;
+	size_t i;
 	for (i = 0; i < dataWrite.size(); i++)
 	{
 		tmpDataWrite[i] = dataWrite[i];
@@ -324,18 +324,28 @@ int Com::Write(String& dataWrite)
 			{
 				zlog_info(Util::m_zlog, "向串口写入数据");
 
-				if(((res = write(m_handle, tmpDataWrite+ done, left)) == -1)||(!res))
+				res = write(m_handle, tmpDataWrite + done, left);
+				if(res < 0)
 				{
-					if(errno != EINTR)
+					if(errno == EINTR)
 					{
-						delete[] tmpDataWrite;
-						zlog_warn(Util::m_zlog, "向串口写入数据失败%d",errno);
-						return -1;
+						continue;
 					}
+
+					delete[] tmpDataWrite;
+					zlog_warn(Util::m_zlog, "向串口写入数据失败%d", errno);
+					return -1;
 				}
 
-	            done += res;
-	            left -= res;
+				if(res == 0)
+				{
+					delete[] tmpDataWrite;
+					zlog_warn(Util::m_zlog, "向串口写入数据失败: write返回0");
+					return -1;
+				}
+
+				done += (size_t)res;
+				left -= (size_t)res;
 
 				if(dataWrite.size() == done)
 				{
@@ -354,7 +364,7 @@ int Com::Write(String& dataWrite)
 int Com::TxRxMsg(String& dataRead, String& dataWrite, int len)
 {
 	zlog_info(Util::m_zlog, "句柄=%ld, 写入长度=%d, 读取长度=%d, 超时时间=%d.",m_handle,
-			dataWrite.size(),
+			(int)dataWrite.size(),
 			len,
 			m_timeout);
 

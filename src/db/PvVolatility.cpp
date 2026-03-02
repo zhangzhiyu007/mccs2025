@@ -24,7 +24,7 @@ void PvVolatility::Run() {
     int pvRunState = 0;
 
     while (true) {
-        if (m_state == Thread::STOPPED) {
+        if (m_state == Thread::STOPPING || m_state == Thread::STOPPED) {
             zlog_warn(Util::m_zlog, "退出读取数据库线程");
             break;
         }

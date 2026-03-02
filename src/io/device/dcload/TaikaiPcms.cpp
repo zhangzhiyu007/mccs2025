@@ -99,7 +99,7 @@ int TaikaiPcms::TaiKaiPcmsRead(Device::SlaveDev* dev)
 	}
 
 	//判断串口是否打开
-	if (!m_tcpClient->IsOpened())
+	if (NULL == m_tcpClient || !m_tcpClient->IsOpened())
 	{
 		return ErrorInfo::ERR_OPENED;
 	}
@@ -168,7 +168,7 @@ int TaikaiPcms::TaiKaiPcmsPreset(Device::SlaveDev* dev)
 	float tmp = 0;
 
 	//判断串口是否打开
-	if (!m_tcpClient->IsOpened())
+	if (NULL == m_tcpClient || !m_tcpClient->IsOpened())
 	{
 		return ErrorInfo::ERR_OPENED;
 	}

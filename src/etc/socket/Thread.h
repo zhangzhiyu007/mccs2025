@@ -64,7 +64,7 @@ public:
 	};
 
 	//线程状态
-	State GetState()
+	State GetState() const
 	{
 		return m_state;
 	}

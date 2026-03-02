@@ -10,17 +10,39 @@
 
 //数据库指针
 //使用全局变量，可以不再.h文件中显示
-static sqlite3* g_dbConn=NULL;//数据库句柄指针
-static sqlite3_stmt* g_stmt=NULL;//数据集
+
+static pthread_once_t g_dbLockOnce = PTHREAD_ONCE_INIT;
+static pthread_mutex_t g_dbLock;
+
+static void InitDbLockOnce()
+{
+	pthread_mutexattr_t attr;
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&g_dbLock, &attr);
+	pthread_mutexattr_destroy(&attr);
+}
+
+class ScopedDbLock {
+public:
+	ScopedDbLock() {
+		pthread_once(&g_dbLockOnce, InitDbLockOnce);
+		pthread_mutex_lock(&g_dbLock);
+	}
+	~ScopedDbLock() { pthread_mutex_unlock(&g_dbLock); }
+private:
+	ScopedDbLock(const ScopedDbLock &);
+	ScopedDbLock &operator=(const ScopedDbLock &);
+};
 
 Db::Db()
 {
 	// TODO 构造函数
-	g_dbConn = NULL;
-	g_stmt = NULL;
 	m_dbOpen = false;
 	m_dbTimeout = 1000;
 	m_isKey = false;
+	m_dbConn = NULL;
+	m_stmt = NULL;
 	//默认加密密钥
 	m_key = "mazhonghua";
 }
@@ -29,12 +51,11 @@ Db::~Db()
 {
 	// TODO 析构函数
 	Close();
-	g_dbConn = NULL;
-	g_stmt = NULL;
 }
 
 bool Db::Open()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "打开数据库");
 	bool isSuccess = true;//是否打开成功
 
@@ -49,6 +70,7 @@ bool Db::Open()
 
 bool Db::OpenDb()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "打开数据库");
 
 	//如果已经打开数据库，就先关闭
@@ -64,16 +86,16 @@ bool Db::OpenDb()
 
 	//打开数据库
 	zlog_info(Util::m_zlog, "执行打开数据库%s操作",m_db.c_str());
-	ret = sqlite3_open(m_db.c_str(), &g_dbConn);
+	ret = sqlite3_open(m_db.c_str(), &m_dbConn);
 	if (SQLITE_OK != ret)
 	{
 		isSuccess = false;
-		errmsg = (char*) sqlite3_errmsg(g_dbConn);
+		errmsg = (char*) sqlite3_errmsg(m_dbConn);
 		zlog_error(Util::m_zlog, "打开数据库失败,错误码:%s.",errmsg);
 	}
 	else
 	{
-		ret = sqlite3_busy_timeout(g_dbConn, m_dbTimeout);
+		ret = sqlite3_busy_timeout(m_dbConn, m_dbTimeout);
 		zlog_info(Util::m_zlog, "打开数据库成功");
 	}
 
@@ -88,12 +110,22 @@ bool Db::IsOpen()
 
 void Db::Close()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "关闭数据库");
 	if (IsOpen())
 	{
-		sqlite3_close(g_dbConn);
-		g_dbConn = NULL;//数据库句柄
-		g_stmt = NULL;
+		if (NULL != m_stmt)
+		{
+			sqlite3_finalize(m_stmt);
+			m_stmt = NULL;
+		}
+		int ret = sqlite3_close(m_dbConn);
+		if (SQLITE_OK != ret)
+		{
+			zlog_warn(Util::m_zlog, "关闭数据库失败,错误=%s", sqlite3_errmsg(m_dbConn));
+			return;
+		}
+		m_dbConn = NULL;//数据库句柄
 		m_dbOpen = false;
 	}
 
@@ -102,6 +134,7 @@ void Db::Close()
 
 bool Db::Rekey()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "加密数据库修改密钥");
 
 	bool isSuccess = true;//是否打开成功
@@ -109,11 +142,11 @@ bool Db::Rekey()
 	int ret = SQLITE_OK;//返回码
 
 	//修改密钥，清空密钥为 sqlite3_rekey( db, NULL, 0)。
-	ret = sqlite3_rekey(g_dbConn, m_key.c_str(), m_key.length());
+	ret = sqlite3_rekey(m_dbConn, m_key.c_str(), m_key.length());
 	if (SQLITE_OK != ret)
 	{
 		isSuccess = false;
-		errmsg = (char*) sqlite3_errmsg(g_dbConn);
+		errmsg = (char*) sqlite3_errmsg(m_dbConn);
 		zlog_warn(Util::m_zlog, "数据库密钥错误,错误码:%s.",errmsg);
 	}
 	else
@@ -126,17 +159,18 @@ bool Db::Rekey()
 
 bool Db::ClearKey()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "加密数据库修改密钥");
 
 	bool isSuccess = true;//是否打开成功
 	char* errmsg = NULL;//错误信息
 	int ret = SQLITE_OK;//返回码
 
-	ret = sqlite3_rekey(g_dbConn, NULL, 0);
+	ret = sqlite3_rekey(m_dbConn, NULL, 0);
 	if (SQLITE_OK != ret)
 	{
 		isSuccess = false;
-		errmsg = (char*) sqlite3_errmsg(g_dbConn);
+		errmsg = (char*) sqlite3_errmsg(m_dbConn);
 		zlog_warn(Util::m_zlog, "数据库密钥错误,错误码:%s.",errmsg);
 	}
 	else
@@ -149,6 +183,7 @@ bool Db::ClearKey()
 
 bool Db::Key()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "向加密数据库输入密钥");
 
 	bool isSuccess = true;//是否打开成功
@@ -156,11 +191,11 @@ bool Db::Key()
 	int ret = SQLITE_OK;//返回码
 
 	//输入密钥
-	ret = sqlite3_key(g_dbConn, m_key.c_str(), m_key.length());
+	ret = sqlite3_key(m_dbConn, m_key.c_str(), m_key.length());
 	if (SQLITE_OK != ret)
 	{
 		isSuccess = false;
-		errmsg = (char*) sqlite3_errmsg(g_dbConn);
+		errmsg = (char*) sqlite3_errmsg(m_dbConn);
 		zlog_warn(Util::m_zlog, "数据库密钥错误,错误码:%s.",errmsg);
 	}
 	else
@@ -199,21 +234,28 @@ void Db::SetTimeout(int timeout)
 
 bool Db::Prepare(string sql)
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "预处理sql语句=%s.",sql.c_str());
 
     int ret = SQLITE_OK;
 	sqlite3_stmt* stmt = NULL;//预处理语句对象
 	char* errmsg = NULL;//错误信息
 
+	if (NULL != m_stmt)
+	{
+		sqlite3_finalize(m_stmt);
+		m_stmt = NULL;
+	}
+
 	//预处理sql语句\即将sql语句进行解析成字节
-	ret = sqlite3_prepare(g_dbConn, sql.c_str(), -1, &stmt,
+	ret = sqlite3_prepare(m_dbConn, sql.c_str(), -1, &stmt,
 			(const char**) &errmsg);
 	if (SQLITE_OK != ret) {
-		zlog_info(Util::m_zlog, "预处理sql语句失败，错误=%s.",sqlite3_errmsg(g_dbConn));
+		zlog_info(Util::m_zlog, "预处理sql语句失败，错误=%s.",sqlite3_errmsg(m_dbConn));
 		return false;
 	}
 
-	g_stmt = stmt;
+	m_stmt = stmt;
 
 	zlog_info(Util::m_zlog, "预处理sql语句=%s成功.",sql.c_str());
 	return true;
@@ -221,32 +263,47 @@ bool Db::Prepare(string sql)
 
 string Db::Errmsg()
 {
+	ScopedDbLock dbLock;
 	string errmsg;
 	char errmsgtmp[128];
-	sprintf(errmsgtmp, "%s", sqlite3_errmsg(g_dbConn));
+	sprintf(errmsgtmp, "%s", sqlite3_errmsg(m_dbConn));
 	errmsg = errmsgtmp;
 	return errmsg;
 }
 
 int Db::Step()
 {
-	return sqlite3_step(g_stmt);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("Step"))
+	{
+		return DB_ERROR;
+	}
+	return sqlite3_step(m_stmt);
 }
 
 void Db::Reset()
 {
-	sqlite3_reset(g_stmt);
+	ScopedDbLock dbLock;
+	if (NULL != m_stmt)
+	{
+		sqlite3_reset(m_stmt);
+	}
 	return;
 }
 
 void Db::Finalize()
 {
-	sqlite3_finalize(g_stmt);
-	g_stmt = NULL;
+	ScopedDbLock dbLock;
+	if (NULL != m_stmt)
+	{
+		sqlite3_finalize(m_stmt);
+		m_stmt = NULL;
+	}
 }
 
 bool Db::Begin()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "事务处理开始.");
 	bool ret = true;
 	string sql = "begin";
@@ -269,6 +326,7 @@ bool Db::Begin()
 
 bool Db::Commit()
 {
+	ScopedDbLock dbLock;
 	zlog_info(Util::m_zlog, "事务提交.");
 	bool ret = true;
 	string sql = "commit";
@@ -289,50 +347,105 @@ bool Db::Commit()
 	return ret;
 }
 
+bool Db::HasStmtLocked(const char* caller) const
+{
+	if (NULL == m_stmt)
+	{
+		zlog_warn(Util::m_zlog, "%s失败: m_stmt为空", caller);
+		return false;
+	}
+	return true;
+}
+
 int Db::GetDataCount()
 {
-	return sqlite3_data_count(g_stmt);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetDataCount"))
+	{
+		return 0;
+	}
+	return sqlite3_data_count(m_stmt);
 }
 
 int Db::GetColumnCount()
 {
-	return sqlite3_column_count(g_stmt);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetColumnCount"))
+	{
+		return 0;
+	}
+	return sqlite3_column_count(m_stmt);
 }
 
 void* Db::GetColumnBlob(int i)
 {
-	return (void*)sqlite3_column_blob(g_stmt,i);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetColumnBlob"))
+	{
+		return NULL;
+	}
+	return (void*)sqlite3_column_blob(m_stmt,i);
 }
 
 int Db::GetColumnBytes(int i)
 {
-	return sqlite3_column_bytes(g_stmt,i);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetColumnBytes"))
+	{
+		return 0;
+	}
+	return sqlite3_column_bytes(m_stmt,i);
 }
 
 int Db::GetColumnBytes16(int i)
 {
-	return sqlite3_column_bytes16(g_stmt,i);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetColumnBytes16"))
+	{
+		return 0;
+	}
+	return sqlite3_column_bytes16(m_stmt,i);
 }
 
 int Db::GetColumnInt(int i)
 {
-	return sqlite3_column_int(g_stmt,i);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetColumnInt"))
+	{
+		return 0;
+	}
+	return sqlite3_column_int(m_stmt,i);
 }
 
 double Db::GetColumnDouble(int i)
 {
-	return sqlite3_column_double(g_stmt,i);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetColumnDouble"))
+	{
+		return 0;
+	}
+	return sqlite3_column_double(m_stmt,i);
 }
 
 char* Db::GetColumnChar(int i)
 {
-	return (char*) sqlite3_column_text(g_stmt, i);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("GetColumnChar"))
+	{
+		return NULL;
+	}
+	return (char*) sqlite3_column_text(m_stmt, i);
 }
 
 string Db::GetColumnText(int i)
 {
+	ScopedDbLock dbLock;
 	string str="";
-	char* tmp=(char*) sqlite3_column_text(g_stmt, i);
+	if (!HasStmtLocked("GetColumnText"))
+	{
+		return str;
+	}
+	char* tmp=(char*) sqlite3_column_text(m_stmt, i);
 	if(NULL!=tmp)
 	{
 		str = tmp;
@@ -342,7 +455,12 @@ string Db::GetColumnText(int i)
 
 bool Db::BindText(int i,string data)
 {
-	int ret = sqlite3_bind_text(g_stmt, i, data.c_str(), data.length(),
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("BindText"))
+	{
+		return false;
+	}
+	int ret = sqlite3_bind_text(m_stmt, i, data.c_str(), data.length(),
 			SQLITE_TRANSIENT);
 	if (DB_OK == ret)
 	{
@@ -354,7 +472,12 @@ bool Db::BindText(int i,string data)
 
 bool Db::BindText16(int i,void* data,int num)
 {
-	int ret = sqlite3_bind_text16(g_stmt, i, data, num, SQLITE_TRANSIENT);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("BindText16"))
+	{
+		return false;
+	}
+	int ret = sqlite3_bind_text16(m_stmt, i, data, num, SQLITE_TRANSIENT);
 	if (DB_OK == ret)
 	{
 		return true;
@@ -365,7 +488,12 @@ bool Db::BindText16(int i,void* data,int num)
 
 bool Db::BindInt(int i,int data)
 {
-	int ret = sqlite3_bind_int(g_stmt, i, data);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("BindInt"))
+	{
+		return false;
+	}
+	int ret = sqlite3_bind_int(m_stmt, i, data);
 	if (DB_OK == ret)
 	{
 		return true;
@@ -376,7 +504,12 @@ bool Db::BindInt(int i,int data)
 
 bool Db::BindDouble(int i,double data)
 {
-	int ret = sqlite3_bind_double(g_stmt, i, data);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("BindDouble"))
+	{
+		return false;
+	}
+	int ret = sqlite3_bind_double(m_stmt, i, data);
 	if (DB_OK == ret)
 	{
 		return true;
@@ -387,7 +520,12 @@ bool Db::BindDouble(int i,double data)
 
 bool Db::BindBlob(int i,void* data,int num)
 {
-	int ret = sqlite3_bind_text16(g_stmt, i, data, num, SQLITE_TRANSIENT);
+	ScopedDbLock dbLock;
+	if (!HasStmtLocked("BindBlob"))
+	{
+		return false;
+	}
+	int ret = sqlite3_bind_blob(m_stmt, i, data, num, SQLITE_TRANSIENT);
 	if (DB_OK == ret)
 	{
 		return true;

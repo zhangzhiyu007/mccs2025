@@ -7,8 +7,18 @@
  */
 
 #include "./RLCLoad.h"
+#include <cstring>
 
-RLCLoad::RLCLoad() { this->m_tcpClient = NULL; }
+RLCLoad::RLCLoad() {
+    this->m_tcpClient = NULL;
+    memset(m_cur_range, 0, sizeof(m_cur_range));
+    memset(m_cur_ratio, 0, sizeof(m_cur_ratio));
+    memset(m_volt_range, 0, sizeof(m_volt_range));
+    memset(m_volt_ratio, 0, sizeof(m_volt_ratio));
+    memset(m_cur_index, 0, sizeof(m_cur_index));
+    memset(m_volt_index, 0, sizeof(m_volt_index));
+    memset(m_power_index, 0, sizeof(m_power_index));
+}
 RLCLoad::~RLCLoad() {}
 
 void RLCLoad::SetTcp(TcpClient *tcpClient) { this->m_tcpClient = tcpClient; }
@@ -16,14 +26,11 @@ void RLCLoad::SetTcp(TcpClient *tcpClient) { this->m_tcpClient = tcpClient; }
 int RLCLoad::Read(Device::SlaveDev *dev) {
     int ret = ErrorInfo::ERR_OK;
     if (NULL == dev) {
-        return ret;
-    }
-    if (NULL == dev) {
         zlog_warn(Util::m_zlog, "从设备为NULL");
         return ErrorInfo::ERR_NULL;
     }
 
-    if (!m_tcpClient->IsOpened()) {
+    if (NULL == m_tcpClient || !m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "tcp 未打开");
         return ErrorInfo::ERR_OPENED;
     }
@@ -53,7 +60,7 @@ int RLCLoad::Preset(Device::SlaveDev *dev) {
         zlog_warn(Util::m_zlog, "从设备为NULL");
         return ErrorInfo::ERR_NULL;
     }
-    if (!m_tcpClient->IsOpened()) {
+    if (NULL == m_tcpClient || !m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "tcp 未打开");
         return ErrorInfo::ERR_OPENED;
     }
@@ -79,7 +86,7 @@ int RLCLoad::Preset(Device::SlaveDev *dev) {
 
 int RLCLoad::RLC_a_Read(Device::SlaveDev *dev) {
     if (NULL == dev) {
-        zlog_warn(Util::m_zlog, "< %s > 读取数据失败", dev->name.c_str());
+        zlog_warn(Util::m_zlog, "设备为NULL, 读取数据失败");
         return ErrorInfo::ERR_NULL;
     }
 
@@ -97,7 +104,7 @@ int RLCLoad::RLC_a_Read(Device::SlaveDev *dev) {
     float sumC       = 0.0;
     const char *name = dev->name.c_str();
 
-    if (!this->m_tcpClient->IsOpened()) {
+    if (NULL == this->m_tcpClient || !this->m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "网口未打开");
     }
     this->GetMeterInfo(dev);
@@ -525,18 +532,19 @@ int RLCLoad::RLC_a_Read(Device::SlaveDev *dev) {
 }
 
 int RLCLoad::RLC_b_Read(Device::SlaveDev *dev) {
-    int ret  = ErrorInfo::ERR_OK;
-    int addr = atoi(dev->slaveAddr.c_str());
+    int ret = ErrorInfo::ERR_OK;
 
     if (NULL == dev) {
-        zlog_warn(Util::m_zlog, "< %s > 读取数据失败", dev->name.c_str());
+        zlog_warn(Util::m_zlog, "设备为NULL, 读取数据失败");
         return ErrorInfo::ERR_NULL;
     }
 
-    if (!this->m_tcpClient->IsOpened()) {
+    if (NULL == this->m_tcpClient || !this->m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "网口未打开");
         return ErrorInfo::ERR_OPENED;
     }
+
+    int addr     = atoi(dev->slaveAddr.c_str());
 
     ModbusRtuMaster rtu;
     rtu.SetIsTcp(true);
@@ -890,18 +898,19 @@ int RLCLoad::RLC_b_Read(Device::SlaveDev *dev) {
 }
 
 int RLCLoad::RLC_c_Read(Device::SlaveDev *dev) {
-    int ret  = ErrorInfo::ERR_OK;
-    int addr = atoi(dev->slaveAddr.c_str());
+    int ret = ErrorInfo::ERR_OK;
 
     if (NULL == dev) {
-        zlog_warn(Util::m_zlog, "< %s > 读取数据失败", dev->name.c_str());
+        zlog_warn(Util::m_zlog, "设备为NULL, 读取数据失败");
         return ErrorInfo::ERR_NULL;
     }
 
-    if (!this->m_tcpClient->IsOpened()) {
+    if (NULL == this->m_tcpClient || !this->m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "网口未打开");
         return ErrorInfo::ERR_OPENED;
     }
+
+    int addr     = atoi(dev->slaveAddr.c_str());
 
     ModbusRtuMaster rtu;
     rtu.SetIsTcp(true);
@@ -1067,15 +1076,16 @@ int RLCLoad::RLC_c_Read(Device::SlaveDev *dev) {
 }
 
 int RLCLoad::GetMeterInfo(Device::SlaveDev *dev) {
-    int ret  = ErrorInfo::ERR_OK;
-    int addr = atoi(dev->slaveAddr.c_str());
+    int ret = ErrorInfo::ERR_OK;
 
     if (NULL == dev) {
-        zlog_warn(Util::m_zlog, "< %s > 读取数据失败", dev->name.c_str());
+        zlog_warn(Util::m_zlog, "设备为NULL, 读取数据失败");
         return ErrorInfo::ERR_NULL;
     }
 
-    if (!this->m_tcpClient->IsOpened()) {
+    int addr = atoi(dev->slaveAddr.c_str());
+
+    if (NULL == this->m_tcpClient || !this->m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "网口未打开");
         return ErrorInfo::ERR_OPENED;
     }
@@ -1147,8 +1157,6 @@ int RLCLoad::GetMeterInfo(Device::SlaveDev *dev) {
 
 int RLCLoad::RLC_a_Preset(Device::SlaveDev *dev) {
     int ret              = ErrorInfo::ERR_OK;
-    int regStart         = dev->regStart;
-    int addr             = atoi(dev->slaveAddr.c_str());
     int data             = 0;
     unsigned short cmd   = 0;
     const int prefix     = 0b11111;
@@ -1160,10 +1168,13 @@ int RLCLoad::RLC_a_Preset(Device::SlaveDev *dev) {
         return ErrorInfo::ERR_NULL;
     }
 
-    if (!this->m_tcpClient->IsOpened()) {
+    if (NULL == this->m_tcpClient || !this->m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "网口未打开");
         return ErrorInfo::ERR_OPENED;
     }
+
+    int regStart = dev->regStart;
+    int addr     = atoi(dev->slaveAddr.c_str());
 
     ModbusRtuMaster rtu;
     rtu.SetIsTcp(true);
@@ -1387,8 +1398,6 @@ int RLCLoad::RLC_a_Preset(Device::SlaveDev *dev) {
 
 int RLCLoad::RLC_b_Preset(Device::SlaveDev *dev) {
     int ret              = ErrorInfo::ERR_OK;
-    int regStart         = dev->regStart;
-    int addr             = atoi(dev->slaveAddr.c_str());
     int data             = 0;
     // unsigned short cmd   = 0;
     // const int prefix     = 0b11111;
@@ -1402,10 +1411,13 @@ int RLCLoad::RLC_b_Preset(Device::SlaveDev *dev) {
         return ErrorInfo::ERR_NULL;
     }
 
-    if (!this->m_tcpClient->IsOpened()) {
+    if (NULL == this->m_tcpClient || !this->m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "网口未打开");
         return ErrorInfo::ERR_OPENED;
     }
+
+    int regStart = dev->regStart;
+    int addr     = atoi(dev->slaveAddr.c_str());
 
     ModbusRtuMaster rtu;
     rtu.SetIsTcp(true);
@@ -1534,10 +1546,8 @@ int RLCLoad::RLC_b_Preset(Device::SlaveDev *dev) {
 }
 
 int RLCLoad::RLC_c_Preset(Device::SlaveDev *dev) {
-    int ret              = ErrorInfo::ERR_OK;
-    int regStart         = dev->regStart;
-    int addr             = atoi(dev->slaveAddr.c_str());
-    int data             = 0;
+    int ret      = ErrorInfo::ERR_OK;
+    int data     = 0;
     // unsigned short cmd   = 0;
     // const int prefix     = 0b11111;
     // const int res_prefix = 0b1111111;
@@ -1549,10 +1559,13 @@ int RLCLoad::RLC_c_Preset(Device::SlaveDev *dev) {
         return ErrorInfo::ERR_NULL;
     }
 
-    if (!this->m_tcpClient->IsOpened()) {
+    if (NULL == this->m_tcpClient || !this->m_tcpClient->IsOpened()) {
         zlog_warn(Util::m_zlog, "网口未打开");
         return ErrorInfo::ERR_OPENED;
     }
+
+    int regStart = dev->regStart;
+    int addr     = atoi(dev->slaveAddr.c_str());
 
     ModbusRtuMaster rtu;
     rtu.SetIsTcp(true);
@@ -1598,9 +1611,11 @@ int RLCLoad::RLC_c_Preset(Device::SlaveDev *dev) {
         // fvalues.push_back(0);
         // rtu.PresetMultipleFloatRegisters(addr, 0x33, 2, fvalues);
         rtu.PresetSingleRegister(addr, 0x33, (data >> 16) & 0xFFFF);
-		rtu.PresetSingleRegister(addr, 0x34, data  & 0xFFFF);
-        zlog_warn(Util::m_zlog, "< %s > 设置RA功率值 %d", dev->name.c_str(),data);
+        rtu.PresetSingleRegister(addr, 0x34, data & 0xFFFF);
+        zlog_warn(Util::m_zlog, "< %s > 设置RA功率值 %d", dev->name.c_str(), data);
     }
+
+    return ret;
 }
 
 int RLCLoad::GetActivePowerCmd(int set_power) {

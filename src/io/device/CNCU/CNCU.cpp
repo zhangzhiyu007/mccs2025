@@ -96,6 +96,7 @@ int CNCU::OverallRead(Device::SlaveDev* dev){
 	}
 	// 系统数据区通信状态
 	MemDb::SetRealData(regStart+269, comm, false);
+	return ret;
 }
 
 /*	Mingyu - 2021-03-01
