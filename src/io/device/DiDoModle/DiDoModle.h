@@ -61,6 +61,30 @@ private:
 	int HC209Read(Device::SlaveDev* dev);
 
 	/*
+	 *  DAM0404DRead
+	 *  功能: 读取DAM0404D继电器和输入状态
+	 */
+	int DAM0404DRead(Device::SlaveDev* dev);
+
+	/*
+	 *  DAM0404DPreset
+	 *  功能: 设置DAM0404D继电器输出状态
+	 */
+	int DAM0404DPreset(Device::SlaveDev* dev);
+
+	/*
+	 *  DAM0404DPointTableRead
+	 *  功能: 读取点表版设备(06H~3FH)
+	 */
+	int DAM0404DPointTableRead(Device::SlaveDev* dev);
+
+	/*
+	 *  DAM0404DPointTablePreset
+	 *  功能: 写点表版设备STATUS(05H)
+	 */
+	int DAM0404DPointTablePreset(Device::SlaveDev* dev);
+
+	/*
 	 *  HC201Read
 	 *  功能: 读取开关模块数据
 	 *  输入：

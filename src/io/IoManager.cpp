@@ -92,21 +92,46 @@ int IoManager::Init()
 /*
  * 名称: Unint
  * 功能: 停止IO通讯相关线程
- * 输出: 无
+ * 输出: 返回错误码ErrorInfo, 成功返回ErrorInfo::ERR_OK
  */
-void IoManager::Uninit()
+int IoManager::Uninit()
 {
 	zlog_warn(Util::m_zlog, "关闭IO通讯相关线程");
 	//关闭以太网通讯线程
 	m_tcpThreadedServer.Stop();
 
-	//1、关闭以太网通讯
-	m_socketThreads.CloseThreads();
+	//1、关闭以太网通讯(失败时重试，避免短暂阻塞导致长期半关闭)
+	const int kSocketCloseRetryMax = 3;
+	int socketCloseRet = ErrorInfo::ERR_FAILED;
+	for (int retry = 0; retry < kSocketCloseRetryMax; ++retry)
+	{
+		socketCloseRet = m_socketThreads.CloseThreads();
+		if (socketCloseRet == ErrorInfo::ERR_OK)
+		{
+			break;
+		}
+		zlog_error(Util::m_zlog,
+				"关闭socket线程池失败(第%d/%d次)，准备重试",
+				(retry + 1), kSocketCloseRetryMax);
+		if (retry + 1 < kSocketCloseRetryMax)
+		{
+			msleep(1000);
+		}
+	}
+	if (socketCloseRet != ErrorInfo::ERR_OK)
+	{
+		zlog_error(Util::m_zlog,
+				"关闭socket线程池最终失败，可能仍有线程/资源处于保留状态");
+		zlog_error(Util::m_zlog,
+				"检测到socket线程仍可能存活，阻断后续IO拆除(CAN/COM)以避免并发访问已去初始化全局资源");
+		return ErrorInfo::ERR_FAILED;
+	}
+
 	//2、关闭CAN通讯
 	m_canThreads.CloseThreads();
 	//3、关闭串口通讯
 	m_comThreads.CloseThreads();
 
 	zlog_warn(Util::m_zlog, "关闭IO通讯相关线程结束");
-	return;
+	return ErrorInfo::ERR_OK;
 }

@@ -6,6 +6,15 @@
  */
 
 #include "DiDoModle.h"
+#include <string.h>
+
+static float UshortPairToFloat(unsigned short highWord, unsigned short lowWord)
+{
+	unsigned int raw = ((unsigned int)highWord << 16) | (unsigned int)lowWord;
+	float value = 0.0f;
+	memcpy(&value, &raw, sizeof(float));
+	return value;
+}
 
 DiDoModle::DiDoModle()
 {
@@ -50,6 +59,12 @@ int DiDoModle::Read(Device::SlaveDev* dev)
 	case DevModel::Model_HC_201:
 		ret = this->HC201Read(dev);//惠测DI模块
 		break;
+	case DevModel::Model_DAM0404D:
+		ret = this->DAM0404DRead(dev);//DAM0404D继电器控制卡
+		break;
+	case DevModel::Model_DAM0404D_PT:
+		ret = this->DAM0404DPointTableRead(dev);//点表版设备
+		break;
 	default:
 		break;
 	}
@@ -71,6 +86,12 @@ int DiDoModle::Preset(Device::SlaveDev* dev)
 	{
 	case DevModel::Model_HC_202://hc202
 		ret = this->HC202Preset(dev);
+		break;
+	case DevModel::Model_DAM0404D:
+		ret = this->DAM0404DPreset(dev);
+		break;
+	case DevModel::Model_DAM0404D_PT:
+		ret = this->DAM0404DPointTablePreset(dev);
 		break;
 	default:
 		break;
@@ -1071,4 +1092,239 @@ int DiDoModle::HC209Read(Device::SlaveDev* dev)
 	zlog_info(Util::m_zlog,"读取%s数据结束",dev->name.c_str());
 
 	return ret;
+}
+
+int DiDoModle::DAM0404DRead(Device::SlaveDev* dev)
+{
+	if (NULL == dev)
+	{
+		return ErrorInfo::ERR_NULL;
+	}
+	zlog_info(Util::m_zlog, "开始读取%s数据(DAM0404D)", dev->name.c_str());
+
+	int ret = ErrorInfo::ERR_OK;
+	int addr = atoi(dev->slaveAddr.c_str());
+	const int regStart = dev->regStart;
+	UshortArray relayValues;
+	UshortArray inputValues;
+	bool comm = false;
+
+	ModbusRtuMaster rtu;
+	if (m_isTcp)
+	{
+		if ((NULL == m_tcpClient) || !m_tcpClient->IsOpened())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetIsTcp(true);
+		rtu.SetTcpClient(m_tcpClient);
+	}
+	else
+	{
+		if ((NULL == m_com) || !m_com->IsOpen())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetCom(m_com);
+	}
+
+	// 读取4路继电器状态（线圈00001~00004）
+	ret = rtu.ReadOutputStatus(relayValues, addr, 0x0000, 4);
+	if (ret != ErrorInfo::ERR_OK)
+	{
+		MemDb::SetRealData(regStart + 0, comm, false);
+		return ret;
+	}
+
+	// 读取4路光耦输入（离散输入10001~10004）
+	ret = rtu.ReadInputStatus(inputValues, addr, 0x0000, 4);
+	if (ret != ErrorInfo::ERR_OK)
+	{
+		MemDb::SetRealData(regStart + 0, comm, false);
+		return ret;
+	}
+	if ((relayValues.size() < 4) || (inputValues.size() < 4))
+	{
+		MemDb::SetRealData(regStart + 0, comm, false);
+		return ErrorInfo::ERR_FAILED;
+	}
+
+	comm = true;
+	MemDb::SetRealData(regStart + 0, comm, false);
+	MemDb::SetRealData(regStart + 1, (short)relayValues[0], false);
+	MemDb::SetRealData(regStart + 2, (short)relayValues[1], false);
+	MemDb::SetRealData(regStart + 3, (short)relayValues[2], false);
+	MemDb::SetRealData(regStart + 4, (short)relayValues[3], false);
+	MemDb::SetRealData(regStart + 5, (short)inputValues[0], false);
+	MemDb::SetRealData(regStart + 6, (short)inputValues[1], false);
+	MemDb::SetRealData(regStart + 7, (short)inputValues[2], false);
+	MemDb::SetRealData(regStart + 8, (short)inputValues[3], false);
+
+	zlog_info(Util::m_zlog, "读取%s数据结束(DAM0404D)", dev->name.c_str());
+	return ErrorInfo::ERR_OK;
+}
+
+int DiDoModle::DAM0404DPreset(Device::SlaveDev* dev)
+{
+	if (NULL == dev)
+	{
+		return ErrorInfo::ERR_NULL;
+	}
+	int addr = atoi(dev->slaveAddr.c_str());
+	const int regStart = dev->regStart;
+	RealData realData;
+
+	ModbusRtuMaster rtu;
+	if (m_isTcp)
+	{
+		if ((NULL == m_tcpClient) || !m_tcpClient->IsOpened())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetIsTcp(true);
+		rtu.SetTcpClient(m_tcpClient);
+	}
+	else
+	{
+		if ((NULL == m_com) || !m_com->IsOpen())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetCom(m_com);
+	}
+
+	// DAM0404D: 线圈00001~00004对应4路继电器，命令来自 regStart+1..+4
+	for (int i = 0; i < 4; ++i)
+	{
+		if (MemDb::GetRealDataWrited(realData, regStart + 1 + i, true))
+		{
+			int ret = rtu.ForceSingleCoil(addr, i, (realData.pv.data.iValue != 0));
+			if (ret != ErrorInfo::ERR_OK)
+			{
+				zlog_warn(Util::m_zlog,
+						"DAM0404D写线圈失败: dev=%s, addr=%d, coil=%d, value=%d, err=%d",
+						dev->name.c_str(), addr, i, realData.pv.data.iValue, ret);
+				return ret;
+			}
+		}
+	}
+
+	return ErrorInfo::ERR_OK;
+}
+
+int DiDoModle::DAM0404DPointTableRead(Device::SlaveDev* dev)
+{
+	if (NULL == dev)
+	{
+		return ErrorInfo::ERR_NULL;
+	}
+	zlog_info(Util::m_zlog, "开始读取%s数据(DAM0404D点表)", dev->name.c_str());
+
+	int ret = ErrorInfo::ERR_OK;
+	int addr = atoi(dev->slaveAddr.c_str());
+	const int regStart = dev->regStart;
+	UshortArray values;
+	bool comm = false;
+
+	ModbusRtuMaster rtu;
+	if (m_isTcp)
+	{
+		if ((NULL == m_tcpClient) || !m_tcpClient->IsOpened())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetIsTcp(true);
+		rtu.SetTcpClient(m_tcpClient);
+	}
+	else
+	{
+		if ((NULL == m_com) || !m_com->IsOpen())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetCom(m_com);
+	}
+
+	ret = rtu.ReadOutputRegisters(values, addr, 0x0006, 0x003A);
+	if (ret != ErrorInfo::ERR_OK)
+	{
+		MemDb::SetRealData(regStart + 0, comm, false);
+		return ret;
+	}
+	if (values.size() < 58)
+	{
+		MemDb::SetRealData(regStart + 0, comm, false);
+		return ErrorInfo::ERR_FAILED;
+	}
+
+	comm = true;
+	MemDb::SetRealData(regStart + 0, comm, false);
+
+	for (int i = 0; i < 13; ++i)
+	{
+		float v = UshortPairToFloat(values[i * 2], values[i * 2 + 1]);
+		MemDb::SetRealData(regStart + 1 + i, v, false);
+	}
+	for (int i = 0; i < 7; ++i)
+	{
+		int off = (0x20 - 0x06) + i * 2;
+		float v = UshortPairToFloat(values[off], values[off + 1]);
+		MemDb::SetRealData(regStart + 14 + i, v, false);
+	}
+
+	MemDb::SetRealData(regStart + 21, UshortPairToFloat(values[0x2E - 0x06], values[0x2F - 0x06]), false);
+	MemDb::SetRealData(regStart + 22, UshortPairToFloat(values[0x32 - 0x06], values[0x33 - 0x06]), false);
+	MemDb::SetRealData(regStart + 23, UshortPairToFloat(values[0x36 - 0x06], values[0x37 - 0x06]), false);
+	MemDb::SetRealData(regStart + 24, UshortPairToFloat(values[0x3A - 0x06], values[0x3B - 0x06]), false);
+
+	MemDb::SetRealData(regStart + 25, (short)values[0x3E - 0x06], false);
+	MemDb::SetRealData(regStart + 26, (short)values[0x3F - 0x06], false);
+
+	zlog_info(Util::m_zlog, "读取%s数据结束(DAM0404D点表)", dev->name.c_str());
+	return ErrorInfo::ERR_OK;
+}
+
+int DiDoModle::DAM0404DPointTablePreset(Device::SlaveDev* dev)
+{
+	if (NULL == dev)
+	{
+		return ErrorInfo::ERR_NULL;
+	}
+	int addr = atoi(dev->slaveAddr.c_str());
+	const int regStart = dev->regStart;
+	RealData realData;
+
+	ModbusRtuMaster rtu;
+	if (m_isTcp)
+	{
+		if ((NULL == m_tcpClient) || !m_tcpClient->IsOpened())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetIsTcp(true);
+		rtu.SetTcpClient(m_tcpClient);
+	}
+	else
+	{
+		if ((NULL == m_com) || !m_com->IsOpen())
+		{
+			return ErrorInfo::ERR_OPENED;
+		}
+		rtu.SetCom(m_com);
+	}
+
+	if (MemDb::GetRealDataWrited(realData, regStart + 25, true))
+	{
+		unsigned short status = (unsigned short)(realData.pv.data.iValue & 0x000F);
+		int ret = rtu.PresetSingleRegister(addr, 0x0005, status);
+		if (ret != ErrorInfo::ERR_OK)
+		{
+			zlog_warn(Util::m_zlog,
+					"DAM0404D点表设备写STATUS失败: dev=%s, addr=%d, status=0x%04X, err=%d",
+					dev->name.c_str(), addr, status, ret);
+			return ret;
+		}
+	}
+
+	return ErrorInfo::ERR_OK;
 }
