@@ -292,6 +292,8 @@ class DevModel {
     const static int RLC_C    = 76; // RLC负载C 北京移动
     const static int DCLOAD_A = 77; // 直流负载A
     const static int DCLOAD_B = 78; // 直流负载B北京移动
+    const static int Model_DAM0404D = 79; // 聚英翱翔 DAM0404D 继电器控制卡
+    const static int Model_DAM0404D_PT = 80; // 聚英翱翔 点表版电力测量+DO/DI设备
 };
 
 /*名称：Device
